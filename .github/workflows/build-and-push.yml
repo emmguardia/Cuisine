@@ -28,8 +28,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    name: Test & security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+
+      - name: Audit (high+)
+        run: npm audit --audit-level=high
+
   build-and-push:
     name: Build and push
+    needs: test
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
