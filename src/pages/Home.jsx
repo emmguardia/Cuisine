@@ -6,10 +6,12 @@ function Hero() {
   return (
     <section className="relative w-full h-screen min-h-[640px] overflow-hidden">
       <img
-        src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1920&q=80"
+        src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1400&auto=format&q=75"
         alt="Cuisine étudiante"
-        className="absolute inset-0 w-full h-full object-cover animate-zoom-in"
+        className="absolute inset-0 w-full h-full object-cover"
         loading="eager"
+        fetchpriority="high"
+        decoding="sync"
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/30 to-black/60" />
 
@@ -82,7 +84,7 @@ function Mission() {
           <div className="flex-1 relative">
             <div className="rounded-3xl overflow-hidden shadow-warm-lg aspect-[4/3]">
               <img
-                src="https://images.unsplash.com/photo-1547592180-85f173990554?w=900&q=80"
+                src="https://images.unsplash.com/photo-1547592180-85f173990554?w=800&auto=format&q=75"
                 alt="Cuisine en action"
                 className="w-full h-full object-cover"
                 loading="lazy"
@@ -112,17 +114,17 @@ function WhatWeDo() {
     {
       title: 'Repas hebdomadaires',
       desc: 'Chaque semaine, notre équipe cuisine des plats faits maison et les propose aux étudiants à des prix accessibles.',
-      img: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80',
+      img: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&auto=format&q=75',
     },
     {
       title: 'Événements & soirées',
       desc: 'Vous organisez un événement et cherchez une restauration de qualité ? On intervient pour régaler vos convives.',
-      img: 'https://images.unsplash.com/photo-1555244162-803834f70033?w=800&q=80',
+      img: 'https://images.unsplash.com/photo-1555244162-803834f70033?w=800&auto=format&q=75',
     },
     {
       title: 'Cuisine accessible',
       desc: 'Qualité et accessibilité ne sont pas incompatibles. On prouve que la bonne cuisine est à la portée de tous.',
-      img: 'https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=800&q=80',
+      img: 'https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=800&auto=format&q=75',
     },
   ];
 
@@ -192,9 +194,9 @@ function Guardia() {
 /* ── Recettes (aperçu) ───────────────────────────────────────────── */
 function RecettesApercu() {
   const recipes = [
-    { image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=80', title: 'Pâtes carbonara', time: '20 min', tag: 'Facile' },
-    { image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&q=80', title: 'Tarte aux pommes', time: '45 min', tag: 'Moyen' },
-    { image: 'https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=600&q=80', title: 'Risotto champignons', time: '35 min', tag: 'Difficile' },
+    { image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&q=75', title: 'Pâtes carbonara', time: '20 min', tag: 'Facile' },
+    { image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&auto=format&q=75', title: 'Tarte aux pommes', time: '45 min', tag: 'Moyen' },
+    { image: 'https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=600&auto=format&q=75', title: 'Risotto champignons', time: '35 min', tag: 'Difficile' },
   ];
 
   return (
@@ -219,7 +221,7 @@ function RecettesApercu() {
             <div key={i} className="group bg-white rounded-2xl overflow-hidden shadow-cream hover:shadow-warm transition-all duration-300 hover:-translate-y-1">
               <div className="relative h-52 overflow-hidden">
                 <img src={r.image} alt={r.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
-                <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-orange-600 font-nunito text-xs font-bold px-3 py-1 rounded-full">
+                <div className="absolute top-3 right-3 bg-white/95 text-orange-600 font-nunito text-xs font-bold px-3 py-1 rounded-full">
                   {r.time}
                 </div>
               </div>
