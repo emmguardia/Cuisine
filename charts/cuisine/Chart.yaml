@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cuisine
+description: Helm chart for Club Quisine (frontend nginx statique)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

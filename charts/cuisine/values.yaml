@@ -1,0 +1,22 @@
+# values.yaml — Club Quisine (prod)
+# L'image est mise à jour automatiquement par la CI (build-and-push.yml)
+# Format : ghcr.io/<owner>/cuisine-front@sha256:<digest>
+
+namespace: quisine
+
+frontend:
+  image: ghcr.io/emmguardia/cuisine-front:latest
+  imagePullPolicy: IfNotPresent
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  port: 8080
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "32Mi"
+    limits:
+      cpu: "200m"
+      memory: "64Mi"
