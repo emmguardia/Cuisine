@@ -53,8 +53,6 @@ export default function MentionsLegales() {
             <Section title="Développement & technique">
               <Row label="Responsable technique" value="Enzo Monnet-Mata, Trésorier" />
               <Row label="Contact technique" value="emonnet-mata@guardiaschool.fr" />
-              <Row label="Technologies" value="React, Nginx, Kubernetes (K3s), ArgoCD" />
-              <Row label="Registre d'images" value="GitHub Container Registry — GitHub, Inc. (Microsoft), 88 Colin P Kelly Jr St, San Francisco, CA 94107, USA" />
             </Section>
 
             <Section title="Hébergement">
