@@ -5,7 +5,7 @@
 namespace: quisine
 
 frontend:
-  image: ghcr.io/emmguardia/cuisine-front@sha256:f404c3b774ee7c9b2021a7ff8b4be8d0db382b960dcdb3237cf64604edb10b36
+  image: ghcr.io/emmguardia/cuisine-front@sha256:9c6c6d4f1c473b2a7bdd2125c4aa6552d8982742fc1fa6a64fc8b187dd402071
   imagePullPolicy: IfNotPresent
   replicas: 1
   strategy:
