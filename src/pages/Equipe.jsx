@@ -68,6 +68,9 @@ function BureauMember({ member, index }) {
               src={member.photo}
               alt={member.name}
               className="w-full h-full object-cover"
+              loading={index === 0 ? 'eager' : 'lazy'}
+              fetchpriority={index === 0 ? 'high' : undefined}
+              decoding={index === 0 ? 'sync' : 'async'}
             />
           ) : (
             <div className={`w-full h-full bg-gradient-to-br ${member.color} flex items-center justify-center`}>
