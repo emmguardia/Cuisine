@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cuisine-frontend-service
+  namespace: {{ include "cuisine.namespace" . }}
+  labels:
+    {{- include "cuisine.labels" . | nindent 4 }}
+    {{- include "cuisine.frontend.selectorLabels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "cuisine.frontend.selectorLabels" . | nindent 4 }}
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: {{ .Values.frontend.port }}

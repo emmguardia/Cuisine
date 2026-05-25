@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Nunito', system-ui, sans-serif;
+    background-color: #FFFBF5;
+    color: #2D1F0E;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+
+  ::-webkit-scrollbar       { width: 8px; }
+  ::-webkit-scrollbar-track { background: #FFF5E8; }
+  ::-webkit-scrollbar-thumb { background: linear-gradient(to bottom, #FF8C42, #FFB88A); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: linear-gradient(to bottom, #FF7A2E, #FF9C5C); }
+}
+
+@layer components {
+  .btn-primary {
+    @apply font-nunito font-bold text-sm px-6 py-3 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-warm hover:shadow-warm-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .btn-outline {
+    @apply font-nunito font-semibold text-sm px-6 py-3 rounded-full border-2 border-orange-400 text-orange-600 hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all duration-300;
+  }
+
+  .section-title {
+    @apply font-playfair text-4xl md:text-5xl font-semibold text-warm-900;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-cream hover:shadow-warm transition-all duration-300 hover:-translate-y-1;
+  }
+}
