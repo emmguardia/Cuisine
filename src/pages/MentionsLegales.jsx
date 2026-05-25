@@ -59,7 +59,7 @@ export default function MentionsLegales() {
 
             <Section title="Hébergement">
               <Row label="Hébergeur" value="Infrastructure auto-hébergée sur serveur dédié" />
-              <Row label="Prestataire serveur" value="[À RENSEIGNER]" />
+              <Row label="Prestataire serveur" value="Serveur dédié auto-hébergé — propriété privée" />
               <Row label="Gestion DNS & certificats" value="Cloudflare, Inc. — 101 Townsend St, San Francisco, CA 94107, USA" />
             </Section>
 
