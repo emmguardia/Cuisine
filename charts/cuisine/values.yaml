@@ -4,7 +4,7 @@
 namespace: quisine
 
 frontend:
-  image: ghcr.io/emmguardia/cuisine-front@sha256:6d38dec0ba54e0f25d10822ee43e28b731ea9b0b2d08bd9a52d0e6a5dc027cc4
+  image: ghcr.io/emmguardia/cuisine-front@sha256:c3d2092413119cb49d36bb967fe2d71de78577214f6ff51ffc9bcd55129d0853
   imagePullPolicy: IfNotPresent
   replicas: 1
   strategy:
@@ -21,7 +21,7 @@ frontend:
       memory: "64Mi"
 
 backend:
-  image: ghcr.io/emmguardia/cuisine-back@sha256:04efaebad96a0364776c0281830f5dea49730f65667552c4f5b335134d957a34
+  image: ghcr.io/emmguardia/cuisine-back@sha256:c9561bb4f6787dcb7bc371df6346023602c1547dea4157b2163e0944622a1626
   imagePullPolicy: IfNotPresent
   replicas: 1
   port: 3000
