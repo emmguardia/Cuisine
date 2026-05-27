@@ -14,3 +14,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "cuisine.frontend.selectorLabels" -}}
 app: cuisine-frontend
 {{- end -}}
+
+{{- define "cuisine.backend.selectorLabels" -}}
+app: cuisine-backend
+{{- end -}}
