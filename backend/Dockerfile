@@ -1,5 +1,5 @@
 # ── Stage 1 : dépendances ────────────────────────────────────────────
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 
 RUN apk update && apk upgrade --no-cache
@@ -8,7 +8,7 @@ COPY package*.json ./
 RUN npm ci --no-audit --no-fund --loglevel=error --omit=dev
 
 # ── Stage 2 : image finale ────────────────────────────────────────────
-FROM node:22-alpine
+FROM node:26-alpine
 WORKDIR /app
 
 RUN apk update && apk upgrade --no-cache \

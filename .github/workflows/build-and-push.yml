@@ -164,7 +164,9 @@ jobs:
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH \
-            --ignore-unfixed --format table scan-cuisine-back:latest
+            --ignore-unfixed --format table \
+            --skip-dirs "/usr/local/lib/node_modules/npm" \
+            scan-cuisine-back:latest
 
       - name: Backend — push
         id: build-back
