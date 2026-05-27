@@ -1,16 +1,34 @@
 import { betterAuth } from 'better-auth';
-import mysql from 'mysql2/promise';
+import { Kysely, MysqlDialect } from 'kysely';
+import { createPool as createCallbackPool } from 'mysql2';   // non-promise → Kysely dialect
+import mysql from 'mysql2/promise';                           // promise → hooks raw queries
 
-/* ── Pool MySQL dédié Better Auth ─────────────────────────────────── */
+/* ── Instance Kysely pour Better Auth ────────────────────────────────── */
+const db = new Kysely({
+  dialect: new MysqlDialect({
+    pool: createCallbackPool({
+      host:     process.env.DB_HOST,
+      user:     process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      waitForConnections: true,
+      connectionLimit: 5,
+      timezone: 'Z',
+      charset:  'utf8mb4',
+    }),
+  }),
+});
+
+/* ── Pool promise séparé pour les requêtes raw dans les hooks ─────────── */
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
+  host:     process.env.DB_HOST,
+  user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
-  connectionLimit: 5,
+  connectionLimit: 3,
   timezone: 'Z',
-  charset: 'utf8mb4',
+  charset:  'utf8mb4',
 });
 
 /* ── Listes d'accès (rechargées à chaque démarrage du pod) ─────────── */
@@ -23,19 +41,16 @@ const MEMBRE_EMAILS = (process.env.MEMBRE_EMAILS || '')
 /* ── Better Auth ─────────────────────────────────────────────────── */
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || 'https://quisine.zenixweb.fr',
-  secret: process.env.BETTER_AUTH_SECRET,
+  secret:  process.env.BETTER_AUTH_SECRET,
   trustedOrigins: [
     process.env.BETTER_AUTH_URL || 'https://quisine.zenixweb.fr',
   ],
 
-  database: {
-    db: pool,
-    type: 'mysql',
-  },
+  database: db,   // Instance Kysely — Better Auth utilise @better-auth/kysely-adapter
 
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientId:     process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     },
   },
@@ -44,9 +59,9 @@ export const auth = betterAuth({
   user: {
     additionalFields: {
       role: {
-        type: 'string',
+        type:         'string',
         defaultValue: 'membre',
-        required: true,
+        required:     true,
       },
     },
   },
@@ -56,7 +71,7 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          const email = user.email?.toLowerCase();
+          const email    = user.email?.toLowerCase();
           const isAdmin  = ADMIN_EMAILS.includes(email);
           const isMembre = MEMBRE_EMAILS.includes(email);
 
@@ -85,8 +100,8 @@ export const auth = betterAuth({
 
           const { email, role: currentRole } = rows[0];
           const emailLower = email?.toLowerCase();
-          const isAdmin  = ADMIN_EMAILS.includes(emailLower);
-          const isMembre = MEMBRE_EMAILS.includes(emailLower);
+          const isAdmin    = ADMIN_EMAILS.includes(emailLower);
+          const isMembre   = MEMBRE_EMAILS.includes(emailLower);
 
           if (!isAdmin && !isMembre) {
             // Email retiré des listes après création du compte
