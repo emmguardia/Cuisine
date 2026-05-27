@@ -1,112 +1,39 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import RecipeCard from '../components/RecipeCard';
-
-const recipes = [
-  {
-    image: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=600&auto=format&q=75',
-    title: 'Soufflé au chocolat',
-    tags: ['Dessert', 'Chocolat', 'Facile'],
-    description: 'Un dessert délicieux et aérien, parfait pour impressionner vos invités. Simple à réaliser avec des ingrédients de base.',
-    time: '25 min',
-    difficulty: 'Facile'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&q=75',
-    title: 'Pâtes carbonara',
-    tags: ['Plat', 'Italien', 'Rapide'],
-    description: 'Les pâtes carbonara authentiques, crémeuses et savoureuses. Un classique de la cuisine italienne à découvrir.',
-    time: '20 min',
-    difficulty: 'Moyen'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=600&auto=format&q=75',
-    title: 'Salade César',
-    tags: ['Salade', 'Léger', 'Rapide'],
-    description: 'Une salade fraîche et croquante avec une sauce césar maison. Idéale pour un repas équilibré et savoureux.',
-    time: '15 min',
-    difficulty: 'Facile'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=600&auto=format&q=75',
-    title: 'Burger maison',
-    tags: ['Plat', 'Viande', 'Comfort'],
-    description: 'Un burger gourmand fait maison avec des ingrédients frais. Parfait pour un repas convivial entre amis.',
-    time: '30 min',
-    difficulty: 'Moyen'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&auto=format&q=75',
-    title: 'Tarte aux pommes',
-    tags: ['Dessert', 'Fruit', 'Classique'],
-    description: 'Une tarte aux pommes traditionnelle, sucrée et parfumée. Un dessert réconfortant pour toute la famille.',
-    time: '45 min',
-    difficulty: 'Moyen'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=600&auto=format&q=75',
-    title: 'Risotto aux champignons',
-    tags: ['Plat', 'Végétarien', 'Italien'],
-    description: 'Un risotto crémeux aux champignons, riche en saveurs. Un plat réconfortant et élégant.',
-    time: '35 min',
-    difficulty: 'Difficile'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1551782450-17144efb9c50?w=600&auto=format&q=75',
-    title: 'Pizza margherita',
-    tags: ['Plat', 'Italien', 'Rapide'],
-    description: 'La pizza classique italienne avec une pâte maison. Simple, délicieuse et toujours appréciée.',
-    time: '30 min',
-    difficulty: 'Moyen'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&auto=format&q=75',
-    title: 'Ratatouille',
-    tags: ['Plat', 'Végétarien', 'Provençal'],
-    description: 'Un plat méditerranéen aux légumes du soleil, parfumé aux herbes. Coloré et savoureux.',
-    time: '40 min',
-    difficulty: 'Facile'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=600&auto=format&q=75',
-    title: 'Tiramisu',
-    tags: ['Dessert', 'Italien', 'Classique'],
-    description: 'Le tiramisu traditionnel, onctueux et caféiné. Un dessert italien incontournable.',
-    time: '20 min',
-    difficulty: 'Moyen'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&q=75',
-    title: 'Salade de quinoa',
-    tags: ['Salade', 'Végétarien', 'Healthy'],
-    description: 'Une salade complète au quinoa, légumes croquants et vinaigrette maison. Nutritive et délicieuse.',
-    time: '25 min',
-    difficulty: 'Facile'
-  }
-];
+import { api } from '../lib/api';
 
 const timeFilters = ['Tous', 'Rapide (< 20 min)', 'Moyen (20-30 min)', 'Long (> 30 min)'];
 
 export default function Recettes() {
+  const [recipes, setRecipes]         = useState([]);
+  const [loading, setLoading]         = useState(true);
   const [selectedTag, setSelectedTag] = useState('Tous');
   const [selectedTime, setSelectedTime] = useState('Tous');
 
+  useEffect(() => {
+    api.recipes.list()
+      .then(data => setRecipes(data.recipes || []))
+      .catch(() => setRecipes([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   const allTags = useMemo(
-    () => ['Tous', ...new Set(recipes.flatMap(r => r.tags))],
-    []
+    () => ['Tous', ...new Set(recipes.flatMap(r => r.tags || []))],
+    [recipes]
   );
 
-  const filteredRecipes = useMemo(() => recipes.filter(recipe => {
-    const tagMatch = selectedTag === 'Tous' || recipe.tags.includes(selectedTag);
-    const mins = parseInt(recipe.time);
+  const filtered = useMemo(() => recipes.filter(r => {
+    const tagMatch  = selectedTag === 'Tous' || (r.tags || []).includes(selectedTag);
+    const mins      = parseInt(r.time) || 0;
     const timeMatch =
       selectedTime === 'Tous' ||
-      (selectedTime === 'Rapide (< 20 min)'   && mins < 20) ||
-      (selectedTime === 'Moyen (20-30 min)'   && mins >= 20 && mins <= 30) ||
-      (selectedTime === 'Long (> 30 min)'     && mins > 30);
+      (selectedTime === 'Rapide (< 20 min)'  && mins < 20) ||
+      (selectedTime === 'Moyen (20-30 min)'  && mins >= 20 && mins <= 30) ||
+      (selectedTime === 'Long (> 30 min)'    && mins > 30);
     return tagMatch && timeMatch;
-  }), [selectedTag, selectedTime]);
+  }), [recipes, selectedTag, selectedTime]);
 
   return (
     <div className="w-full min-h-screen bg-cream-100">
@@ -127,51 +54,68 @@ export default function Recettes() {
               Nos Recettes
             </h1>
 
-            <div className="w-full max-w-3xl space-y-3">
-              <div className="flex flex-wrap gap-2 justify-center">
-                {allTags.map(tag => (
-                  <button
-                    key={tag}
-                    onClick={() => setSelectedTag(tag)}
-                    className={`font-nunito px-4 py-1.5 rounded-full text-sm font-semibold transition-colors duration-200 ${
-                      selectedTag === tag
-                        ? 'bg-white text-orange-600'
-                        : 'bg-white/25 text-white hover:bg-white/40'
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
+            {!loading && recipes.length > 0 && (
+              <div className="w-full max-w-3xl space-y-3">
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {allTags.map(tag => (
+                    <button key={tag} onClick={() => setSelectedTag(tag)}
+                      className={`font-nunito px-4 py-1.5 rounded-full text-sm font-semibold transition-colors duration-200 ${
+                        selectedTag === tag ? 'bg-white text-orange-600' : 'bg-white/25 text-white hover:bg-white/40'
+                      }`}>
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {timeFilters.map(t => (
+                    <button key={t} onClick={() => setSelectedTime(t)}
+                      className={`font-nunito px-4 py-1.5 rounded-full text-sm font-semibold transition-colors duration-200 ${
+                        selectedTime === t ? 'bg-white text-orange-600' : 'bg-white/25 text-white hover:bg-white/40'
+                      }`}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {timeFilters.map(time => (
-                  <button
-                    key={time}
-                    onClick={() => setSelectedTime(time)}
-                    className={`font-nunito px-4 py-1.5 rounded-full text-sm font-semibold transition-colors duration-200 ${
-                      selectedTime === time
-                        ? 'bg-white text-orange-600'
-                        : 'bg-white/25 text-white hover:bg-white/40'
-                    }`}
-                  >
-                    {time}
-                  </button>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
         </section>
 
         {/* Grille */}
         <section className="max-w-7xl mx-auto px-6 md:px-10 py-14">
-          {filteredRecipes.length === 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-cream animate-pulse">
+                  <div className="h-48 bg-orange-50" />
+                  <div className="p-5 space-y-3">
+                    <div className="h-5 bg-orange-50 rounded-full w-3/4" />
+                    <div className="h-3 bg-orange-50 rounded-full w-1/2" />
+                    <div className="h-3 bg-orange-50 rounded-full" />
+                    <div className="h-3 bg-orange-50 rounded-full w-5/6" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : recipes.length === 0 ? (
+            <div className="text-center py-24">
+              <div className="w-16 h-16 rounded-2xl bg-orange-50 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <p className="font-playfair text-2xl text-warm-700 mb-2">Aucune recette pour l'instant</p>
+              <p className="font-nunito text-warm-500">Les membres de l'association partagent bientôt leurs créations !</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-16">
-              <p className="font-nunito text-lg text-warm-500">Aucune recette trouvée avec ces filtres.</p>
+              <p className="font-nunito text-lg text-warm-500">Aucune recette avec ces filtres.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredRecipes.map((recipe, index) => (
-                <RecipeCard key={recipe.title} recipe={recipe} priority={index < 4} />
+              {filtered.map((recipe, i) => (
+                <RecipeCard key={recipe.id} recipe={recipe} priority={i < 4} />
               ))}
             </div>
           )}

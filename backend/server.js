@@ -4,6 +4,8 @@ import { toNodeHandler } from 'better-auth/node';
 import { auth } from './config/auth.js';
 import { applySecurityMiddleware } from './config/security.js';
 import recipesRouter from './routes/recipes.js';
+import adminRouter  from './routes/admin.js';
+import uploadRouter from './routes/upload.js';
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -24,6 +26,8 @@ app.get('/api/health', (_req, res) => {
 
 /* ── Routes métier ───────────────────────────────────────────────── */
 app.use('/api/recipes', recipesRouter);
+app.use('/api/admin',   adminRouter);
+app.use('/api/upload',  uploadRouter);
 
 /* ── 404 ─────────────────────────────────────────────────────────── */
 app.use((_req, res) => {

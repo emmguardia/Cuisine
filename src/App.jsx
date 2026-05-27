@@ -8,19 +8,23 @@ const FAQ           = lazy(() => import('./pages/FAQ'));
 const Login         = lazy(() => import('./pages/Login'));
 const Contact       = lazy(() => import('./pages/Contact'));
 const MentionsLegales = lazy(() => import('./pages/MentionsLegales'));
+const Dashboard     = lazy(() => import('./pages/Dashboard'));
+const Admin         = lazy(() => import('./pages/Admin'));
 
 function App() {
   const path = window.location.pathname;
 
   let Page;
-  if      (path === '/recettes')        Page = Recettes;
-  else if (path === '/equipe')          Page = Equipe;
-  else if (path === '/recette')         Page = RecetteDetail;
-  else if (path === '/faq')             Page = FAQ;
-  else if (path === '/login')           Page = Login;
-  else if (path === '/contact')         Page = Contact;
+  if      (path === '/recettes')         Page = Recettes;
+  else if (path === '/equipe')           Page = Equipe;
+  else if (path === '/recette')          Page = RecetteDetail;
+  else if (path === '/faq')              Page = FAQ;
+  else if (path === '/login')            Page = Login;
+  else if (path === '/contact')          Page = Contact;
   else if (path === '/mentions-legales') Page = MentionsLegales;
-  else                                  Page = Home;
+  else if (path === '/dashboard')        Page = Dashboard;
+  else if (path === '/admin')            Page = Admin;
+  else                                   Page = Home;
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-cream-100" />}>

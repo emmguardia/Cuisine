@@ -53,16 +53,6 @@ spec:
                 secretKeyRef:
                   name: quisine-secrets
                   key: better-auth-secret
-            - name: ADMIN_EMAILS
-              valueFrom:
-                secretKeyRef:
-                  name: quisine-secrets
-                  key: admin-emails
-            - name: MEMBRE_EMAILS
-              valueFrom:
-                secretKeyRef:
-                  name: quisine-secrets
-                  key: membre-emails
             - name: DB_HOST
               valueFrom:
                 secretKeyRef:
@@ -83,6 +73,37 @@ spec:
                 secretKeyRef:
                   name: quisine-secrets
                   key: db-password
+            # ── Cloudflare R2 (optionnel — upload photos recettes) ───────
+            - name: R2_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: quisine-secrets
+                  key: r2-account-id
+                  optional: true
+            - name: R2_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: quisine-secrets
+                  key: r2-access-key-id
+                  optional: true
+            - name: R2_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: quisine-secrets
+                  key: r2-secret-access-key
+                  optional: true
+            - name: R2_BUCKET_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: quisine-secrets
+                  key: r2-bucket-name
+                  optional: true
+            - name: R2_PUBLIC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: quisine-secrets
+                  key: r2-public-url
+                  optional: true
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           startupProbe:
