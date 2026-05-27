@@ -1,34 +1,38 @@
 import { betterAuth } from 'better-auth';
 import { Kysely, MysqlDialect } from 'kysely';
-import { createPool as createCallbackPool } from 'mysql2';   // non-promise → Kysely dialect
-import mysql from 'mysql2/promise';                           // promise → hooks raw queries
+import { createPool } from 'mysql2';          // pool callback → Kysely dialect
+import mysql from 'mysql2/promise';           // pool promise → raw queries dans les hooks
 
-/* ── Instance Kysely pour Better Auth ────────────────────────────────── */
-const db = new Kysely({
+/* ── Instance Kysely pour Better Auth ────────────────────────────────── *
+ * L'adapter attend { db: KyselyInstance, type } (cf. @better-auth/kysely-adapter l.29)
+ * Il extrait db.db et appelle insertInto/selectFrom etc. dessus.
+ * MysqlDialect prend un pool callback mysql2 (non-promise).
+ * ─────────────────────────────────────────────────────────────────────── */
+const kyselyDb = new Kysely({
   dialect: new MysqlDialect({
-    pool: createCallbackPool({
-      host:     process.env.DB_HOST,
-      user:     process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
+    pool: createPool({
+      host:             process.env.DB_HOST,
+      user:             process.env.DB_USER,
+      password:         process.env.DB_PASSWORD,
+      database:         process.env.DB_NAME,
       waitForConnections: true,
-      connectionLimit: 5,
-      timezone: 'Z',
-      charset:  'utf8mb4',
+      connectionLimit:  5,
+      timezone:         'Z',
+      charset:          'utf8mb4',
     }),
   }),
 });
 
-/* ── Pool promise séparé pour les requêtes raw dans les hooks ─────────── */
+/* ── Pool promise pour les requêtes raw dans les databaseHooks ────────── */
 const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  host:             process.env.DB_HOST,
+  user:             process.env.DB_USER,
+  password:         process.env.DB_PASSWORD,
+  database:         process.env.DB_NAME,
   waitForConnections: true,
-  connectionLimit: 3,
-  timezone: 'Z',
-  charset:  'utf8mb4',
+  connectionLimit:  3,
+  timezone:         'Z',
+  charset:          'utf8mb4',
 });
 
 /* ── Listes d'accès (rechargées à chaque démarrage du pod) ─────────── */
@@ -46,7 +50,11 @@ export const auth = betterAuth({
     process.env.BETTER_AUTH_URL || 'https://quisine.zenixweb.fr',
   ],
 
-  database: db,   // Instance Kysely — Better Auth utilise @better-auth/kysely-adapter
+  // { db: KyselyInstance, type } → détecté par l'adapter ligne 29-33
+  database: {
+    db:   kyselyDb,
+    type: 'mysql',
+  },
 
   socialProviders: {
     google: {
@@ -76,7 +84,6 @@ export const auth = betterAuth({
           const isMembre = MEMBRE_EMAILS.includes(email);
 
           if (!isAdmin && !isMembre) {
-            // Email non autorisé — empêche la création du compte
             return false;
           }
 
@@ -103,14 +110,10 @@ export const auth = betterAuth({
           const isAdmin    = ADMIN_EMAILS.includes(emailLower);
           const isMembre   = MEMBRE_EMAILS.includes(emailLower);
 
-          if (!isAdmin && !isMembre) {
-            // Email retiré des listes après création du compte
-            return false;
-          }
+          if (!isAdmin && !isMembre) return false;
 
           const newRole = isAdmin ? 'admin' : 'membre';
 
-          // Mettre à jour le rôle si il a changé
           if (currentRole !== newRole) {
             await pool.execute(
               'UPDATE `user` SET role = ?, updatedAt = NOW(3) WHERE id = ?',
