@@ -51,6 +51,23 @@ export const auth = betterAuth({
     process.env.BETTER_AUTH_URL || 'https://quisine.zenixweb.fr',
   ],
 
+  /* ── IP réelle depuis les headers nginx ─────────────────────────── */
+  advanced: {
+    ipAddress: {
+      ipAddressHeaders: ['x-forwarded-for', 'x-real-ip'],
+    },
+  },
+
+  /* ── Rate limiting : par IP réelle, seuils adaptés ──────────────── */
+  rateLimit: {
+    window: 60,   // fenêtre de 60 secondes
+    max:    300,  // 300 req / minute / IP (session polling inclus)
+    customRules: {
+      '/sign-in/social': { window: 60, max: 10 },
+      '/sign-up/email':  { window: 60, max: 5  },
+    },
+  },
+
   database: {
     db:   kyselyDb,
     type: 'mysql',
