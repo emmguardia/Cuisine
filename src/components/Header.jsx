@@ -1,14 +1,36 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { authClient } from '../lib/auth-client';
 
 export default function Header({ solid = false }) {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled]   = useState(false);
+  const [menuOpen, setMenuOpen]       = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  const { data: session, isPending } = authClient.useSession();
+  const user = session?.user ?? null;
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 80);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Fermer le dropdown au clic extérieur
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    window.location.href = '/';
+  };
 
   const scrolled = solid || isScrolled;
 
@@ -18,6 +40,11 @@ export default function Header({ solid = false }) {
     { href: '/contact',  label: 'Contact' },
     { href: '/faq',      label: 'FAQ' },
   ];
+
+  // Initiales de l'utilisateur pour l'avatar de secours
+  const initials = user?.name
+    ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+    : '?';
 
   return (
     <header
@@ -61,28 +88,95 @@ export default function Header({ solid = false }) {
 
         {/* Actions desktop */}
         <div className="hidden md:flex items-center gap-5">
-          <a
-            href="/login"
-            className={`font-nunito text-[14px] font-semibold flex items-center gap-2 transition-colors duration-300 ${
-              scrolled ? 'text-warm-700 hover:text-orange-500' : 'text-white/90 hover:text-white'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="8" r="4"/>
-              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-            </svg>
-            Connexion
-          </a>
-          <a
-            href="/contact"
-            className={`font-nunito text-[14px] font-bold px-5 py-2.5 rounded-full transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 ${
-              scrolled
-                ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-[0_4px_16px_rgba(255,140,66,0.35)] hover:shadow-[0_6px_24px_rgba(255,140,66,0.5)] hover:from-orange-600 hover:to-orange-700'
-                : 'bg-white text-orange-600 shadow-[0_4px_16px_rgba(0,0,0,0.15)] hover:shadow-[0_6px_24px_rgba(0,0,0,0.25)] hover:bg-orange-50'
-            }`}
-          >
-            Nous contacter
-          </a>
+          {!isPending && !user && (
+            <>
+              <a
+                href="/login"
+                className={`font-nunito text-[14px] font-semibold flex items-center gap-2 transition-colors duration-300 ${
+                  scrolled ? 'text-warm-700 hover:text-orange-500' : 'text-white/90 hover:text-white'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="8" r="4"/>
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                </svg>
+                Connexion
+              </a>
+              <a
+                href="/contact"
+                className={`font-nunito text-[14px] font-bold px-5 py-2.5 rounded-full transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 ${
+                  scrolled
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-[0_4px_16px_rgba(255,140,66,0.35)] hover:shadow-[0_6px_24px_rgba(255,140,66,0.5)] hover:from-orange-600 hover:to-orange-700'
+                    : 'bg-white text-orange-600 shadow-[0_4px_16px_rgba(0,0,0,0.15)] hover:shadow-[0_6px_24px_rgba(0,0,0,0.25)] hover:bg-orange-50'
+                }`}
+              >
+                Nous contacter
+              </a>
+            </>
+          )}
+
+          {!isPending && user && (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setDropdownOpen((o) => !o)}
+                className="flex items-center gap-2.5 group"
+                aria-label="Menu utilisateur"
+              >
+                {/* Avatar */}
+                {user.image ? (
+                  <img
+                    src={user.image}
+                    alt={user.name}
+                    referrerPolicy="no-referrer"
+                    className="w-9 h-9 rounded-full object-cover ring-2 ring-orange-200 group-hover:ring-orange-400 transition-all"
+                  />
+                ) : (
+                  <span className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ring-2 ring-orange-200 group-hover:ring-orange-400 transition-all ${
+                    scrolled ? 'bg-orange-100 text-orange-700' : 'bg-white/20 text-white'
+                  }`}>
+                    {initials}
+                  </span>
+                )}
+                <span className={`font-nunito text-[14px] font-semibold hidden lg:block transition-colors duration-300 ${
+                  scrolled ? 'text-warm-800 group-hover:text-orange-600' : 'text-white/90 group-hover:text-white'
+                }`}>
+                  {user.name?.split(' ')[0]}
+                </span>
+                {/* Chevron */}
+                <svg className={`w-3.5 h-3.5 transition-all duration-200 ${dropdownOpen ? 'rotate-180' : ''} ${scrolled ? 'text-warm-600' : 'text-white/70'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+
+              {/* Dropdown */}
+              {dropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-orange-100 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-orange-50">
+                    <p className="text-sm font-semibold text-warm-800 truncate">{user.name}</p>
+                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                    {user.role === 'admin' && (
+                      <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                        Admin
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-1">
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left px-3 py-2.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors duration-200 flex items-center gap-2.5"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                      </svg>
+                      Déconnexion
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Hamburger mobile */}
@@ -100,7 +194,7 @@ export default function Header({ solid = false }) {
       </div>
 
       {/* Menu mobile déroulant */}
-      <div className={`md:hidden overflow-hidden transition-all duration-300 ${menuOpen ? 'max-h-96' : 'max-h-0'}`}>
+      <div className={`md:hidden overflow-hidden transition-all duration-300 ${menuOpen ? 'max-h-[480px]' : 'max-h-0'}`}>
         <div className="bg-[#FFFBF5] px-5 pb-6 flex flex-col gap-1 border-t border-orange-100">
           {navLinks.map((link) => (
             <a
@@ -112,25 +206,66 @@ export default function Header({ solid = false }) {
               {link.label}
             </a>
           ))}
+
           <div className="flex items-center gap-3 pt-4">
-            <a
-              href="/login"
-              onClick={() => setMenuOpen(false)}
-              className="font-nunito text-[14px] font-semibold text-warm-700 hover:text-orange-500 flex items-center gap-2 transition-colors duration-200"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="4"/>
-                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-              </svg>
-              Connexion
-            </a>
-            <a
-              href="/contact"
-              onClick={() => setMenuOpen(false)}
-              className="ml-auto font-nunito text-[14px] font-bold px-5 py-2.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-[0_4px_16px_rgba(255,140,66,0.35)]"
-            >
-              Nous contacter
-            </a>
+            {!isPending && !user && (
+              <>
+                <a
+                  href="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="font-nunito text-[14px] font-semibold text-warm-700 hover:text-orange-500 flex items-center gap-2 transition-colors duration-200"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="8" r="4"/>
+                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                  </svg>
+                  Connexion
+                </a>
+                <a
+                  href="/contact"
+                  onClick={() => setMenuOpen(false)}
+                  className="ml-auto font-nunito text-[14px] font-bold px-5 py-2.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-[0_4px_16px_rgba(255,140,66,0.35)]"
+                >
+                  Nous contacter
+                </a>
+              </>
+            )}
+
+            {!isPending && user && (
+              <div className="w-full flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  {user.image ? (
+                    <img
+                      src={user.image}
+                      alt={user.name}
+                      referrerPolicy="no-referrer"
+                      className="w-9 h-9 rounded-full object-cover ring-2 ring-orange-200"
+                    />
+                  ) : (
+                    <span className="w-9 h-9 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center text-sm font-bold">
+                      {initials}
+                    </span>
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold text-warm-800 leading-tight">{user.name?.split(' ')[0]}</p>
+                    {user.role === 'admin' && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600">Admin</span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="font-nunito text-[13px] font-semibold text-red-500 hover:text-red-600 flex items-center gap-1.5 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                  Déconnexion
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
