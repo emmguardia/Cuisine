@@ -1,16 +1,11 @@
-# Build and push: main → GHCR + pin digest dans values.yaml → ArgoCD sync
-# Runners GitHub (ubuntu) : illimités pour les repos publics
-
+# Build and push: main → GHCR (frontend + backend) + pin digests → ArgoCD sync
 name: Build and push to GHCR
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -28,46 +23,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Test & security
+
+  # ── Test frontend ────────────────────────────────────────────────
+  test-frontend:
+    name: Test frontend
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - run: npm audit --audit-level=high
 
-      - name: Install
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+  # ── Test backend ─────────────────────────────────────────────────
+  test-backend:
+    name: Test backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: backend
+      - run: npm audit --audit-level=high
+        working-directory: backend
 
-      - name: Audit (high+)
-        run: npm audit --audit-level=high
-
+  # ── Build & push ─────────────────────────────────────────────────
   build-and-push:
     name: Build and push
-    needs: test
+    needs: [test-frontend, test-backend]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       contents: write
       packages: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── Version bump ───────────────────────────────────────────
       - name: Bump version
         id: tag
         run: |
@@ -76,15 +84,11 @@ jobs:
           MINOR=$(echo "$CONTENT" | cut -d. -f2)
           PATCH=$(echo "$CONTENT" | cut -d. -f3)
           if ! [[ "$MAJOR" =~ ^[0-9]+$ ]] || ! [[ "$MINOR" =~ ^[0-9]+$ ]] || ! [[ "$PATCH" =~ ^[0-9]+$ ]]; then
-            echo "version.txt invalide: $CONTENT (attendu X.Y.Z)"
+            echo "version.txt invalide: $CONTENT"
             exit 1
           fi
-          if [ "$PATCH" -lt 9 ]; then
-            PATCH=$((PATCH + 1))
-          else
-            PATCH=0
-            MINOR=$((MINOR + 1))
-          fi
+          PATCH=$(( PATCH < 9 ? PATCH + 1 : 0 ))
+          [ "$PATCH" -eq 0 ] && MINOR=$((MINOR + 1))
           NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           echo "$NEW_VERSION" > version.txt
           TAG="v${NEW_VERSION}"
@@ -99,70 +103,105 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@v4
 
-      - name: Extract metadata
-        id: meta
+      # ─────────────────── FRONTEND ────────────────────────────────
+      - name: Frontend — metadata
+        id: meta-front
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/cuisine-front
-          tags: |
-            type=raw,value=${{ steps.tag.outputs.tag }}
+          tags: type=raw,value=${{ steps.tag.outputs.tag }}
 
-      - name: Build (local — pour scan Trivy)
+      - name: Frontend — build (scan)
         uses: docker/build-push-action@v6
         with:
           context: .
           load: true
           push: false
-          tags: scan-cuisine:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: scan-cuisine-front:latest
+          cache-from: type=gha,scope=front
+          cache-to: type=gha,mode=max,scope=front
           pull: true
 
-      - name: Trivy scan (avant push)
+      - name: Frontend — Trivy scan
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --format table \
-            scan-cuisine:latest
+            ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH \
+            --ignore-unfixed --format table scan-cuisine-front:latest
 
-      - name: Push
-        id: build
+      - name: Frontend — push
+        id: build-front
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
+          tags: ${{ steps.meta-front.outputs.tags }}
+          labels: ${{ steps.meta-front.outputs.labels }}
+          cache-from: type=gha,scope=front
           pull: true
 
-      - name: Pin Helm values to image digest
+      # ─────────────────── BACKEND ────────────────────────────────
+      - name: Backend — metadata
+        id: meta-back
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/cuisine-back
+          tags: type=raw,value=${{ steps.tag.outputs.tag }}
+
+      - name: Backend — build (scan)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          load: true
+          push: false
+          tags: scan-cuisine-back:latest
+          cache-from: type=gha,scope=back
+          cache-to: type=gha,mode=max,scope=back
+          pull: true
+
+      - name: Backend — Trivy scan
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH \
+            --ignore-unfixed --format table scan-cuisine-back:latest
+
+      - name: Backend — push
+        id: build-back
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta-back.outputs.tags }}
+          labels: ${{ steps.meta-back.outputs.labels }}
+          cache-from: type=gha,scope=back
+          pull: true
+
+      # ── Pin les deux digests dans values.yaml ─────────────────────
+      - name: Pin Helm values
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
-          DIGEST="${{ steps.build.outputs.digest }}"
           OWNER="${{ github.repository_owner }}"
           REG="${{ env.REGISTRY }}"
 
-          if [ -n "$DIGEST" ]; then
-            IMAGE="${REG}/${OWNER}/cuisine-front@${DIGEST}"
-          else
-            IMAGE="${REG}/${OWNER}/cuisine-front:${TAG}"
-          fi
+          DIGEST_FRONT="${{ steps.build-front.outputs.digest }}"
+          DIGEST_BACK="${{ steps.build-back.outputs.digest }}"
 
-          VALUES_PATH="charts/cuisine/values.yaml"
-          sed -i "s|  image: ghcr.io/.*cuisine-front.*|  image: ${IMAGE}|" "$VALUES_PATH"
+          IMAGE_FRONT="${REG}/${OWNER}/cuisine-front@${DIGEST_FRONT}"
+          IMAGE_BACK="${REG}/${OWNER}/cuisine-back@${DIGEST_BACK}"
 
-          git config user.name "github-actions[bot]"
+          VALUES="charts/cuisine/values.yaml"
+          sed -i "s|  image: ghcr.io/.*cuisine-front.*|  image: ${IMAGE_FRONT}|" "$VALUES"
+          sed -i "s|  image: ghcr.io/.*cuisine-back.*|  image: ${IMAGE_BACK}|"  "$VALUES"
+
+          git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add version.txt "$VALUES_PATH"
+          git add version.txt "$VALUES"
 
           if git diff --staged --quiet; then
-            echo "Helm values already up to date, skip commit"
+            echo "Helm values déjà à jour, pas de commit"
           else
-            git commit -m "chore(helm): pin image to digest $TAG [skip ci]"
+            git commit -m "chore(helm): pin images to digest $TAG [skip ci]"
             git pull --rebase origin ${{ github.ref_name }}
             git push origin ${{ github.ref_name }}
           fi

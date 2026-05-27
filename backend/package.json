@@ -1,0 +1,29 @@
+{
+  "name": "cuisine-backend",
+  "version": "1.0.0",
+  "description": "Backend Club Quisine — auth Google OAuth via Better Auth",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "migrate": "node scripts/migrate.js",
+    "test": "node --test",
+    "audit": "npm audit --audit-level=high"
+  },
+  "dependencies": {
+    "better-auth": "^1.2.7",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "mysql2": "^3.11.0",
+    "pino": "^9.6.0",
+    "pino-http": "^10.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
