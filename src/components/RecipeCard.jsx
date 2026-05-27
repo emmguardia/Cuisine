@@ -1,7 +1,8 @@
 export default function RecipeCard({ recipe, priority = false }) {
   const { image, title, description, tags, time, difficulty } = recipe;
 
-  const slug = title
+  // Utilise le slug fourni par l'API, ou le génère depuis le titre en fallback
+  const slug = recipe.slug || title
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
@@ -52,7 +53,7 @@ export default function RecipeCard({ recipe, priority = false }) {
         </p>
 
         <a
-          href={`/recette?id=${slug}`}
+          href={`/recette?id=${recipe.id || slug}`}
           className="mt-auto btn-primary text-center text-sm py-2.5"
         >
           Voir la recette
