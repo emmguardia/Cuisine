@@ -1,0 +1,21 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+  namespace: {{ include "cuisine.namespace" . }}
+  labels:
+    {{- include "cuisine.labels" . | nindent 4 }}
+spec:
+  headers:
+    # HSTS
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true
+    stsPreload: true
+    # Autres headers de sécurité
+    contentTypeNosniff: true
+    customFrameOptionsValue: "SAMEORIGIN"
+    browserXssFilter: true
+    referrerPolicy: "strict-origin-when-cross-origin"
+    customResponseHeaders:
+      Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+      X-Powered-By: ""
