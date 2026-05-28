@@ -50,10 +50,14 @@ export const api = {
 /** Upload direct vers R2 via presigned URL */
 export async function uploadToR2(file) {
   const { uploadUrl, publicUrl } = await api.upload.presign(file.name);
-  await fetch(uploadUrl, {
+  const res = await fetch(uploadUrl, {
     method: 'PUT',
     body: file,
-    headers: { 'Content-Type': file.type },
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
   });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Échec upload R2 (${res.status})${text ? ' : ' + text : ''}`);
+  }
   return publicUrl;
 }
