@@ -23,7 +23,12 @@ const authLimiter = rateLimit({
 
 export function applySecurityMiddleware(app) {
   app.use(helmet({
-    contentSecurityPolicy: false, // géré par le frontend nginx
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
   }));
 
   app.use(cors({
