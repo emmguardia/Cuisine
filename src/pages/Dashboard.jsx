@@ -1,32 +1,90 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { authClient } from '../lib/auth-client';
 import { api, uploadToR2 } from '../lib/api';
 
-/* ─── Formulaire recette (ajout / modification) ─────────────────────── */
+/* ─── Constantes ─────────────────────────────────────────────────────── */
 const EMPTY_FORM = {
   title: '', description: '', image_url: '',
   tags: '', time: '', difficulty: 'Moyen', servings: 4,
   ingredients: [''], steps: [''],
 };
+const DRAFT_KEY = 'recipe-draft-new';
 
+/* ─── Lecture du brouillon au démarrage ───────────────────────────────── */
+function readDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    // Draft valide seulement s'il a du contenu réel
+    if (d.title || d.description || d.ingredients?.some(Boolean) || d.steps?.some(Boolean)) return d;
+  } catch {}
+  return null;
+}
+
+/* ─── Formulaire recette ─────────────────────────────────────────────── */
 function RecipeModal({ recipe, onClose, onSaved }) {
-  const [form, setForm]       = useState(recipe ? {
-    ...recipe,
-    tags: Array.isArray(recipe.tags) ? recipe.tags.join(', ') : recipe.tags || '',
-  } : EMPTY_FORM);
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving]       = useState(false);
-  const [error, setError]         = useState(null);
-  const fileRef = useRef();
+  const isNew = !recipe?.id;
 
-  const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
-  const setList = (key, i, val) => setForm(f => ({ ...f, [key]: f[key].map((v, idx) => idx === i ? val : v) }));
-  const addItem = key => setForm(f => ({ ...f, [key]: [...f[key], ''] }));
-  const removeItem = (key, i) => setForm(f => ({ ...f, [key]: f[key].filter((_, idx) => idx !== i) }));
+  /* Initialisation : draft localStorage pour nouvelles recettes */
+  const [form, setForm] = useState(() => {
+    if (recipe) {
+      return {
+        ...recipe,
+        tags: Array.isArray(recipe.tags) ? recipe.tags.join(', ') : recipe.tags || '',
+      };
+    }
+    return readDraft() ?? EMPTY_FORM;
+  });
 
-  const handleImage = async (e) => {
+  const [draftRestored]              = useState(() => isNew && readDraft() !== null);
+  const [showDraftBanner, setShowDraftBanner] = useState(true);
+  const [draftStatus,  setDraftStatus]  = useState(''); // '' | 'saved'
+  const [uploading,    setUploading]    = useState(false);
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState(null);
+
+  const fileRef        = useRef();
+  const draftTimer     = useRef(null);
+  const feedbackTimer  = useRef(null);
+
+  /* ── Auto-save localStorage (debounce 600 ms, nouvelles recettes seules) */
+  useEffect(() => {
+    if (!isNew) return;
+    clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+        setDraftStatus('saved');
+        clearTimeout(feedbackTimer.current);
+        feedbackTimer.current = setTimeout(() => setDraftStatus(''), 2000);
+      } catch {}
+    }, 600);
+    return () => clearTimeout(draftTimer.current);
+  }, [form, isNew]);
+
+  /* ── Nettoyage sur démontage */
+  useEffect(() => () => {
+    clearTimeout(draftTimer.current);
+    clearTimeout(feedbackTimer.current);
+  }, []);
+
+  /* ── Handlers stables (useCallback → évite re-render des champs) */
+  const set = useCallback((key, val) =>
+    setForm(f => ({ ...f, [key]: val })), []);
+
+  const setList = useCallback((key, i, val) =>
+    setForm(f => ({ ...f, [key]: f[key].map((v, idx) => idx === i ? val : v) })), []);
+
+  const addItem = useCallback(key =>
+    setForm(f => ({ ...f, [key]: [...f[key], ''] })), []);
+
+  const removeItem = useCallback((key, i) =>
+    setForm(f => ({ ...f, [key]: f[key].filter((_, idx) => idx !== i) })), []);
+
+  const handleImage = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true); setError(null);
@@ -38,9 +96,15 @@ function RecipeModal({ recipe, onClose, onSaved }) {
     } finally {
       setUploading(false);
     }
-  };
+  }, [set]);
 
-  const handleSubmit = async (e) => {
+  const clearDraft = useCallback(() => {
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    setForm(EMPTY_FORM);
+    setShowDraftBanner(false);
+  }, []);
+
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (!form.title.trim()) { setError('Le titre est requis'); return; }
     setSaving(true); setError(null);
@@ -56,6 +120,7 @@ function RecipeModal({ recipe, onClose, onSaved }) {
         await api.recipes.update(recipe.id, payload);
       } else {
         await api.recipes.create(payload);
+        try { localStorage.removeItem(DRAFT_KEY); } catch {}
       }
       onSaved();
     } catch (err) {
@@ -63,17 +128,27 @@ function RecipeModal({ recipe, onClose, onSaved }) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [form, recipe?.id, onSaved]);
 
+  /* ─── Rendu ──────────────────────────────────────────────────────────── */
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl my-8">
-        {/* Header modal */}
+
+        {/* En-tête modal */}
         <div className="flex items-center justify-between px-8 py-6 border-b border-orange-100">
-          <h2 className="font-playfair text-2xl font-semibold text-warm-900">
-            {recipe ? 'Modifier la recette' : 'Nouvelle recette'}
-          </h2>
-          <button onClick={onClose} className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center hover:bg-orange-100 transition-colors">
+          <div className="flex items-center gap-3 min-w-0">
+            <h2 className="font-playfair text-2xl font-semibold text-warm-900 truncate">
+              {recipe ? 'Modifier la recette' : 'Nouvelle recette'}
+            </h2>
+            {draftStatus === 'saved' && (
+              <span className="flex-shrink-0 text-xs font-semibold text-green-500 font-nunito">
+                ✓ Sauvegardé
+              </span>
+            )}
+          </div>
+          <button onClick={onClose}
+            className="flex-shrink-0 w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center hover:bg-orange-100 transition-colors ml-3">
             <svg className="w-5 h-5 text-warm-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -81,6 +156,21 @@ function RecipeModal({ recipe, onClose, onSaved }) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-8 py-6 space-y-5">
+
+          {/* Bannière brouillon restauré */}
+          {draftRestored && showDraftBanner && (
+            <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl gap-3">
+              <p className="font-nunito text-sm text-blue-700">
+                ✦ Brouillon récupéré — vos saisies précédentes ont été restaurées.
+              </p>
+              <button type="button" onClick={clearDraft}
+                className="flex-shrink-0 text-xs font-semibold text-blue-500 hover:text-blue-700 underline underline-offset-2 transition-colors">
+                Effacer
+              </button>
+            </div>
+          )}
+
+          {/* Erreur */}
           {error && (
             <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>
           )}
@@ -122,10 +212,12 @@ function RecipeModal({ recipe, onClose, onSaved }) {
             </div>
           </div>
 
-          {/* Tags / Temps / Difficulté / Portions */}
+          {/* Méta : tags / temps / difficulté / portions */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-warm-700 mb-1.5">Tags <span className="text-warm-400 font-normal">(virgules)</span></label>
+              <label className="block text-sm font-semibold text-warm-700 mb-1.5">
+                Tags <span className="text-warm-400 font-normal">(virgules)</span>
+              </label>
               <input value={form.tags} onChange={e => set('tags', e.target.value)}
                 className="w-full px-4 py-2.5 border-2 border-orange-100 rounded-xl focus:outline-none focus:border-orange-300 font-nunito text-warm-800"
                 placeholder="Dessert, Chocolat" />
@@ -185,7 +277,9 @@ function RecipeModal({ recipe, onClose, onSaved }) {
             <div className="space-y-2">
               {form.steps.map((step, i) => (
                 <div key={i} className="flex gap-2 items-start">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center mt-2.5">{i + 1}</span>
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center mt-2.5">
+                    {i + 1}
+                  </span>
                   <textarea value={step} onChange={e => setList('steps', i, e.target.value)} rows={2}
                     className="flex-1 px-3 py-2 border-2 border-orange-100 rounded-xl focus:outline-none focus:border-orange-300 font-nunito text-sm text-warm-800 resize-none"
                     placeholder={`Étape ${i + 1}…`} />
@@ -228,11 +322,11 @@ function RecipeModal({ recipe, onClose, onSaved }) {
 function DashCard({ recipe, onEdit, onDelete }) {
   const [deleting, setDeleting] = useState(false);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!confirm(`Supprimer "${recipe.title}" ?`)) return;
     setDeleting(true);
     try { await onDelete(recipe.id); } finally { setDeleting(false); }
-  };
+  }, [recipe.id, recipe.title, onDelete]);
 
   return (
     <div className="bg-white rounded-2xl overflow-hidden shadow-cream group">
@@ -277,28 +371,31 @@ export default function Dashboard() {
   const { data: session, isPending } = authClient.useSession();
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal]     = useState(null); // null | 'new' | recipe object
+  const [modal,   setModal]   = useState(null); // null | 'new' | recipe object
 
   useEffect(() => {
     if (!isPending && !session) window.location.href = '/login';
   }, [session, isPending]);
 
-  const loadRecipes = () => {
+  const loadRecipes = useCallback(() => {
     setLoading(true);
     api.recipes.mine()
       .then(d => setRecipes(d.recipes || []))
       .catch(() => setRecipes([]))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(() => { if (session) loadRecipes(); }, [session]);
+  useEffect(() => { if (session) loadRecipes(); }, [session, loadRecipes]);
 
-  const handleDelete = async (id) => {
+  const handleDelete = useCallback(async (id) => {
     await api.recipes.delete(id);
     setRecipes(rs => rs.filter(r => r.id !== id));
-  };
+  }, []);
 
-  const handleSaved = () => { setModal(null); loadRecipes(); };
+  const handleSaved = useCallback(() => { setModal(null); loadRecipes(); }, [loadRecipes]);
+
+  const openNew  = useCallback(() => setModal('new'), []);
+  const closeModal = useCallback(() => setModal(null), []);
 
   if (isPending || !session) return <div className="min-h-screen bg-cream-100" />;
 
@@ -323,7 +420,7 @@ export default function Dashboard() {
                   : `${recipes.length} recette${recipes.length > 1 ? 's' : ''} publiée${recipes.length > 1 ? 's' : ''}`}
               </p>
             </div>
-            <button onClick={() => setModal('new')}
+            <button onClick={openNew}
               className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-nunito font-bold rounded-full shadow-[0_4px_16px_rgba(255,140,66,0.4)] hover:from-orange-600 hover:to-orange-700 transition-all hover:-translate-y-0.5">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -356,7 +453,7 @@ export default function Dashboard() {
               </div>
               <p className="font-playfair text-2xl text-warm-700 mb-2">Aucune recette pour l'instant</p>
               <p className="font-nunito text-warm-500 mb-6">Partagez vos créations culinaires avec les membres de l'association !</p>
-              <button onClick={() => setModal('new')}
+              <button onClick={openNew}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-nunito font-bold rounded-full transition-all hover:-translate-y-0.5">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -368,7 +465,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {recipes.map(r => (
                 <DashCard key={r.id} recipe={r}
-                  onEdit={r => setModal(r)}
+                  onEdit={setModal}
                   onDelete={handleDelete} />
               ))}
             </div>
@@ -379,7 +476,7 @@ export default function Dashboard() {
       {modal && (
         <RecipeModal
           recipe={modal === 'new' ? null : modal}
-          onClose={() => setModal(null)}
+          onClose={closeModal}
           onSaved={handleSaved}
         />
       )}
