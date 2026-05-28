@@ -1,5 +1,5 @@
 export default function RecipeCard({ recipe, priority = false }) {
-  const { image, title, description, tags, time, difficulty } = recipe;
+  const { image_url: image, title, description, tags, time, difficulty } = recipe;
 
   // Utilise le slug fourni par l'API, ou le génère depuis le titre en fallback
   const slug = recipe.slug || title
