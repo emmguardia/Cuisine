@@ -55,26 +55,32 @@ export default function Recettes() {
             </h1>
 
             {!loading && recipes.length > 0 && (
-              <div className="w-full max-w-3xl space-y-3">
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {allTags.map(tag => (
-                    <button key={tag} onClick={() => setSelectedTag(tag)}
-                      className={`font-nunito px-4 py-1.5 rounded-full text-sm font-semibold transition-colors duration-200 ${
-                        selectedTag === tag ? 'bg-white text-orange-600' : 'bg-white/25 text-white hover:bg-white/40'
-                      }`}>
-                      {tag}
-                    </button>
-                  ))}
+              <div className="w-full max-w-3xl space-y-4">
+                <div className="flex flex-col items-center gap-2">
+                  <span className="font-nunito text-xs font-bold uppercase tracking-wider text-white/70">Catégorie</span>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {allTags.map(tag => (
+                      <button key={tag} onClick={() => setSelectedTag(tag)}
+                        className={`font-nunito px-4 py-1.5 rounded-full text-sm font-semibold transition-colors duration-200 ${
+                          selectedTag === tag ? 'bg-white text-orange-600' : 'bg-white/25 text-white hover:bg-white/40'
+                        }`}>
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {timeFilters.map(t => (
-                    <button key={t} onClick={() => setSelectedTime(t)}
-                      className={`font-nunito px-4 py-1.5 rounded-full text-sm font-semibold transition-colors duration-200 ${
-                        selectedTime === t ? 'bg-white text-orange-600' : 'bg-white/25 text-white hover:bg-white/40'
-                      }`}>
-                      {t}
-                    </button>
-                  ))}
+                <div className="flex flex-col items-center gap-2">
+                  <span className="font-nunito text-xs font-bold uppercase tracking-wider text-white/70">Temps de préparation</span>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {timeFilters.map(t => (
+                      <button key={t} onClick={() => setSelectedTime(t)}
+                        className={`font-nunito px-4 py-1.5 rounded-full text-sm font-semibold transition-colors duration-200 ${
+                          selectedTime === t ? 'bg-white text-orange-600' : 'bg-white/25 text-white hover:bg-white/40'
+                        }`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

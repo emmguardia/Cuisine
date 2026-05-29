@@ -11,6 +11,17 @@ const MentionsLegales = lazy(() => import('./pages/MentionsLegales'));
 const Dashboard     = lazy(() => import('./pages/Dashboard'));
 const Admin         = lazy(() => import('./pages/Admin'));
 
+function PageLoader() {
+  return (
+    <div className="min-h-screen bg-cream-100 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4" role="status" aria-label="Chargement">
+        <div className="w-10 h-10 rounded-full border-[3px] border-orange-200 border-t-orange-500 animate-spin" />
+        <span className="font-nunito text-sm text-warm-500">Chargement…</span>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const path = window.location.pathname;
 
@@ -27,7 +38,7 @@ function App() {
   else                                   Page = Home;
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-cream-100" />}>
+    <Suspense fallback={<PageLoader />}>
       <Page />
     </Suspense>
   );
