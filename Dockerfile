@@ -13,7 +13,9 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Image finale nginx (aucun package Node)
-FROM nginx:alpine
+# Stage nommé "runtime" → exclu du cache CI (no-cache-filters) pour toujours
+# récupérer les derniers patchs de sécurité Alpine au build.
+FROM nginx:alpine AS runtime
 
 RUN apk update && apk upgrade -a --no-cache && rm -rf /var/cache/apk/*
 
