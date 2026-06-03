@@ -122,16 +122,15 @@ const tables = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`],
 ];
 
-/* ── Admins à pré-autoriser dans la whitelist ──────────────────────
- * Ces emails sont déjà connus. INSERT IGNORE si déjà présents.
+/* ── Admins à pré-autoriser (bootstrap) ─────────────────────────────
+ * Source : secret SEED_ADMIN_EMAILS, jamais en clair dans le code.
+ * Format : "a@ecole.fr,b@ecole.fr". Vide = aucun seed
+ * (les admins sont alors gérés via /admin → Emails autorisés).
  * ─────────────────────────────────────────────────────────────────── */
-const SEED_ADMINS = [
-  'ddathueyt@guardiaschool.fr',
-  'seed-removed@example.invalid',
-  'seed-removed@example.invalid',
-  'seed-removed@example.invalid',
-  'emonnet-mata@guardiaschool.fr',
-];
+const SEED_ADMINS = (process.env.SEED_ADMIN_EMAILS || '')
+  .split(',')
+  .map(e => e.trim().toLowerCase())
+  .filter(Boolean);
 
 console.log('[migrate] Connexion à quisine_db...');
 
@@ -140,14 +139,14 @@ for (const [name, sql] of tables) {
   console.log(`[migrate] Table \`${name}\` : OK`);
 }
 
-/* Seed whitelist */
+/* Seed whitelist (uniquement si SEED_ADMIN_EMAILS est fourni) */
 for (const email of SEED_ADMINS) {
   await conn.execute(
     'INSERT IGNORE INTO allowed_email (email, role) VALUES (?, ?)',
     [email, 'admin']
   );
 }
-console.log('[migrate] Whitelist admins : seeded');
+console.log(`[migrate] Whitelist admins : ${SEED_ADMINS.length} email(s) seeded`);
 
 await conn.end();
 console.log('[migrate] Migration terminée.');
