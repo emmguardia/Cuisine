@@ -8,3 +8,6 @@ dist/
 # Secrets non chiffrés — jamais committer
 charts/cuisine/secrets/*.yaml
 charts/cuisine/secrets/SECRETS.md
+
+# Builder.io local credentials (ne jamais committer)
+.config/
