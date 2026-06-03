@@ -73,6 +73,13 @@ spec:
                 secretKeyRef:
                   name: quisine-secrets
                   key: db-password
+            # ── Bootstrap admins (optionnel) — liste d'emails séparés par virgule
+            - name: SEED_ADMIN_EMAILS
+              valueFrom:
+                secretKeyRef:
+                  name: quisine-secrets
+                  key: seed-admin-emails
+                  optional: true
             # ── Cloudflare R2 (optionnel — upload photos recettes) ───────
             - name: R2_ACCOUNT_ID
               valueFrom:
