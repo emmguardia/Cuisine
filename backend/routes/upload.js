@@ -1,76 +1,35 @@
 /**
  * Upload R2 — génère une presigned PUT URL pour Cloudflare R2
- * GET /api/upload/presign?filename=photo.jpg
+ * GET /api/upload/presign?filename=photo.jpg&folder=recettes
  *
- * Env vars requis :
- *   R2_ACCOUNT_ID       — identifiant de compte CF
- *   R2_ACCESS_KEY_ID    — clé d'accès R2
- *   R2_SECRET_ACCESS_KEY — secret R2
- *   R2_BUCKET_NAME      — nom du bucket
- *   R2_PUBLIC_URL       — URL publique du bucket (ex: https://pub-xxx.r2.dev)
+ * folder autorisés : recettes (défaut), membres.
+ * Config R2 dans config/r2.js.
  */
 import { Router } from 'express';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { extname } from 'path';
-import { randomUUID } from 'crypto';
 import { requireAuth } from '../middleware/auth.js';
+import { presignUpload } from '../config/r2.js';
 
 const router = Router();
 router.use(requireAuth);
 
-const ALLOWED_EXTS = {
-  '.jpg':  'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.png':  'image/png',
-  '.webp': 'image/webp',
-  '.gif':  'image/gif',
-};
+const ALLOWED_FOLDERS = ['recettes', 'membres'];
 
-function getS3() {
-  if (!process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID) return null;
-  return new S3Client({
-    region:         'auto',
-    endpoint:       `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    forcePathStyle: true,   // requis pour Cloudflare R2 (pas de virtual-hosted-style)
-    credentials: {
-      accessKeyId:     process.env.R2_ACCESS_KEY_ID,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-    },
-  });
-}
-
-/* GET /api/upload/presign?filename=photo.jpg */
+/* GET /api/upload/presign?filename=photo.jpg&folder=recettes */
 router.get('/presign', async (req, res) => {
-  const s3 = getS3();
-  if (!s3) {
-    return res.status(503).json({ error: 'Upload non configuré — R2 manquant' });
-  }
-
-  const { filename } = req.query;
+  const { filename, folder } = req.query;
   if (!filename) return res.status(400).json({ error: 'filename requis' });
 
-  const ext         = extname(filename).toLowerCase();
-  const contentType = ALLOWED_EXTS[ext];
-  if (!contentType) {
-    return res.status(400).json({ error: 'Format non supporté (.jpg .png .webp .gif)' });
+  const targetFolder = ALLOWED_FOLDERS.includes(folder) ? folder : 'recettes';
+
+  const result = await presignUpload(targetFolder, filename);
+  if (!result) {
+    return res.status(503).json({ error: 'Upload non configuré — R2 manquant' });
+  }
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
   }
 
-  const key = `recettes/${randomUUID()}${ext}`;
-
-  const uploadUrl = await getSignedUrl(
-    s3,
-    new PutObjectCommand({
-      Bucket:      process.env.R2_BUCKET_NAME,
-      Key:         key,
-      ContentType: contentType,
-    }),
-    { expiresIn: 300 }  // 5 min
-  );
-
-  const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
-
-  res.json({ uploadUrl, publicUrl });
+  res.json({ uploadUrl: result.uploadUrl, publicUrl: result.publicUrl });
 });
 
 export default router;

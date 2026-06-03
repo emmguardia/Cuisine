@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { api } from '../lib/api';
 
 const bureau = [
   {
@@ -44,16 +46,25 @@ const bureau = [
   },
 ];
 
-const membres = [
-  { name: 'Prénom Nom', initials: 'PN', color: 'from-orange-300 to-orange-500' },
-  { name: 'Prénom Nom', initials: 'PN', color: 'from-amber-400 to-orange-400' },
-  { name: 'Prénom Nom', initials: 'PN', color: 'from-orange-400 to-red-400' },
-  { name: 'Prénom Nom', initials: 'PN', color: 'from-amber-300 to-orange-500' },
-  { name: 'Prénom Nom', initials: 'PN', color: 'from-orange-500 to-amber-400' },
-  { name: 'Prénom Nom', initials: 'PN', color: 'from-red-300 to-orange-400' },
-  { name: 'Prénom Nom', initials: 'PN', color: 'from-orange-300 to-amber-500' },
-  { name: 'Prénom Nom', initials: 'PN', color: 'from-amber-500 to-orange-500' },
+// Dégradés de repli pour les membres sans photo (couleur dérivée du nom)
+const MEMBER_GRADIENTS = [
+  'from-orange-300 to-orange-500',
+  'from-amber-400 to-orange-400',
+  'from-orange-400 to-red-400',
+  'from-amber-300 to-orange-500',
+  'from-orange-500 to-amber-400',
+  'from-red-300 to-orange-400',
 ];
+
+function initialsOf(name) {
+  return (name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+}
+
+function gradientFor(name) {
+  let sum = 0;
+  for (const c of (name || '')) sum += c.charCodeAt(0);
+  return MEMBER_GRADIENTS[sum % MEMBER_GRADIENTS.length];
+}
 
 function BureauMember({ member, index }) {
   const reverse = index % 2 !== 0;
@@ -105,16 +116,26 @@ function BureauMember({ member, index }) {
 function MembreCard({ membre }) {
   return (
     <div className="group bg-white rounded-2xl p-5 shadow-cream hover:shadow-warm transition-all duration-300 hover:-translate-y-1 flex flex-col items-center text-center">
-      <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${membre.color} flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300`}>
-        <span className="font-playfair text-xl font-semibold text-white">{membre.initials}</span>
+      <div className={`w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br ${gradientFor(membre.name)} flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300`}>
+        {membre.photo_url
+          ? <img src={membre.photo_url} alt={membre.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+          : <span className="font-playfair text-xl font-semibold text-white">{initialsOf(membre.name)}</span>}
       </div>
       <h3 className="font-playfair text-base font-semibold text-warm-900 mb-1">{membre.name}</h3>
-      <span className="font-nunito text-xs font-bold tracking-[0.15em] uppercase text-orange-400">Membre</span>
+      <span className="font-nunito text-xs font-bold tracking-[0.15em] uppercase text-orange-400">{membre.role || 'Membre'}</span>
     </div>
   );
 }
 
 export default function Equipe() {
+  const [membres, setMembres] = useState([]);
+
+  useEffect(() => {
+    api.team.list()
+      .then(d => setMembres(d.members || []))
+      .catch(() => setMembres([]));
+  }, []);
+
   return (
     <div className="w-full min-h-screen bg-cream-100">
       <Header />
@@ -144,19 +165,21 @@ export default function Equipe() {
         </section>
 
         {/* Membres */}
-        <section>
-          <div className="flex items-center gap-4 mb-10">
-            <div className="flex-1 h-px bg-orange-100" />
-            <h2 className="font-playfair text-2xl font-semibold italic text-warm-800">Nos membres</h2>
-            <div className="flex-1 h-px bg-orange-100" />
-          </div>
+        {membres.length > 0 && (
+          <section>
+            <div className="flex items-center gap-4 mb-10">
+              <div className="flex-1 h-px bg-orange-100" />
+              <h2 className="font-playfair text-2xl font-semibold italic text-warm-800">Nos membres</h2>
+              <div className="flex-1 h-px bg-orange-100" />
+            </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {membres.map((m, i) => (
-              <MembreCard key={i} membre={m} />
-            ))}
-          </div>
-        </section>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {membres.map((m) => (
+                <MembreCard key={m.id} membre={m} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* CTA */}
         <div className="mt-20 text-center bg-white rounded-3xl p-12 shadow-cream">
