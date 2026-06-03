@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { getPool } from '../config/database.js';
 import { requireAuth } from '../middleware/auth.js';
+import { deleteFromR2 } from '../config/r2.js';
 
 const router = Router();
 
@@ -97,7 +98,7 @@ router.post('/', requireAuth, async (req, res) => {
 /* ── PUT /api/recipes/:id — modifier (propriétaire ou admin) ─────────── */
 router.put('/:id', requireAuth, async (req, res) => {
   const [rows] = await getPool().execute(
-    'SELECT author_id FROM recipe WHERE id = ?', [req.params.id]
+    'SELECT author_id, image_url FROM recipe WHERE id = ?', [req.params.id]
   );
   if (!rows.length) return res.status(404).json({ error: 'Recette introuvable' });
   if (rows[0].author_id !== req.user.id && req.user.role !== 'admin') {
@@ -126,13 +127,19 @@ router.put('/:id', requireAuth, async (req, res) => {
     req.params.id,
   ]);
 
+  // Si la photo a été remplacée, on nettoie l'ancienne dans le bucket
+  const oldImage = rows[0].image_url;
+  if (oldImage && oldImage !== (image_url || null)) {
+    await deleteFromR2(oldImage);
+  }
+
   res.json({ message: 'Recette mise à jour' });
 });
 
 /* ── DELETE /api/recipes/:id — supprimer (propriétaire ou admin) ─────── */
 router.delete('/:id', requireAuth, async (req, res) => {
   const [rows] = await getPool().execute(
-    'SELECT author_id FROM recipe WHERE id = ?', [req.params.id]
+    'SELECT author_id, image_url FROM recipe WHERE id = ?', [req.params.id]
   );
   if (!rows.length) return res.status(404).json({ error: 'Recette introuvable' });
   if (rows[0].author_id !== req.user.id && req.user.role !== 'admin') {
@@ -140,6 +147,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
   }
 
   await getPool().execute('DELETE FROM recipe WHERE id = ?', [req.params.id]);
+
+  if (rows[0].image_url) await deleteFromR2(rows[0].image_url);
+
   res.json({ message: 'Recette supprimée' });
 });
 

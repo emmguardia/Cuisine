@@ -108,6 +108,18 @@ const tables = [
     CONSTRAINT \`recipe_author_fkey\`
       FOREIGN KEY (\`author_id\`) REFERENCES \`user\`(\`id\`) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`],
+
+  /* ── Membres de l'équipe (affichés sur /equipe, gérés depuis l'admin) */
+  [`team_member`, `CREATE TABLE IF NOT EXISTS \`team_member\` (
+    \`id\`         varchar(36)   NOT NULL,
+    \`name\`       varchar(255)  NOT NULL,
+    \`role\`       varchar(255),
+    \`photo_url\`  varchar(1024),
+    \`sort_order\` int           NOT NULL DEFAULT 0,
+    \`created_at\` datetime(3)   NOT NULL DEFAULT NOW(3),
+    PRIMARY KEY (\`id\`),
+    KEY \`team_member_order_idx\` (\`sort_order\`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`],
 ];
 
 /* ── Admins à pré-autoriser dans la whitelist ──────────────────────

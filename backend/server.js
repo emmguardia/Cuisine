@@ -6,6 +6,7 @@ import { applySecurityMiddleware } from './config/security.js';
 import recipesRouter from './routes/recipes.js';
 import adminRouter  from './routes/admin.js';
 import uploadRouter from './routes/upload.js';
+import teamRouter   from './routes/team.js';
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +29,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/recipes', recipesRouter);
 app.use('/api/admin',   adminRouter);
 app.use('/api/upload',  uploadRouter);
+app.use('/api/team',    teamRouter);
 
 /* ── 404 ─────────────────────────────────────────────────────────── */
 app.use((_req, res) => {

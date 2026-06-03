@@ -42,14 +42,22 @@ export const api = {
     deleteEmail:    (id)        => req(`/admin/emails/${id}`,  { method: 'DELETE' }),
   },
 
+  team: {
+    list:   ()         => req('/team'),
+    create: (data)     => req('/team',      { method: 'POST',   body: data }),
+    update: (id, data) => req(`/team/${id}`,{ method: 'PUT',    body: data }),
+    delete: (id)       => req(`/team/${id}`,{ method: 'DELETE' }),
+  },
+
   upload: {
-    presign: (filename) => req(`/upload/presign?filename=${encodeURIComponent(filename)}`),
+    presign: (filename, folder = 'recettes') =>
+      req(`/upload/presign?filename=${encodeURIComponent(filename)}&folder=${encodeURIComponent(folder)}`),
   },
 };
 
 /** Upload direct vers R2 via presigned URL */
-export async function uploadToR2(file) {
-  const { uploadUrl, publicUrl } = await api.upload.presign(file.name);
+export async function uploadToR2(file, folder = 'recettes') {
+  const { uploadUrl, publicUrl } = await api.upload.presign(file.name, folder);
   const res = await fetch(uploadUrl, {
     method: 'PUT',
     body: file,
