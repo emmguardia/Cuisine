@@ -122,6 +122,7 @@ jobs:
           tags: scan-cuisine-front:latest
           cache-from: type=gha,scope=front
           cache-to: type=gha,mode=max,scope=front
+          no-cache-filters: runtime
           pull: true
 
       - name: Frontend — Trivy scan
@@ -139,6 +140,7 @@ jobs:
           tags: ${{ steps.meta-front.outputs.tags }}
           labels: ${{ steps.meta-front.outputs.labels }}
           cache-from: type=gha,scope=front
+          no-cache-filters: runtime
           pull: true
 
       # ─────────────────── BACKEND ────────────────────────────────
@@ -158,6 +160,7 @@ jobs:
           tags: scan-cuisine-back:latest
           cache-from: type=gha,scope=back
           cache-to: type=gha,mode=max,scope=back
+          no-cache-filters: runtime
           pull: true
 
       - name: Backend — Trivy scan
@@ -177,6 +180,7 @@ jobs:
           tags: ${{ steps.meta-back.outputs.tags }}
           labels: ${{ steps.meta-back.outputs.labels }}
           cache-from: type=gha,scope=back
+          no-cache-filters: runtime
           pull: true
 
       # ── Pin les deux digests dans values.yaml ─────────────────────
