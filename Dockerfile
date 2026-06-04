@@ -12,16 +12,19 @@ COPY . .
 
 RUN npm run build
 
-# Stage 2: Image finale nginx (aucun package Node)
+# Stage 2: Image finale nginx NON privilégiée (tourne en uid 101, écrit dans /tmp)
 # Stage nommé "runtime" → exclu du cache CI (no-cache-filters) pour toujours
 # récupérer les derniers patchs de sécurité Alpine au build.
-FROM nginx:alpine AS runtime
+FROM nginxinc/nginx-unprivileged:alpine AS runtime
 
+# apk a besoin de root ; on rebascule en 101 (nginx) pour l'exécution.
+USER root
 RUN apk update && apk upgrade -a --no-cache && rm -rf /var/cache/apk/*
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
+USER 101
 EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]

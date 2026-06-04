@@ -55,8 +55,14 @@ export const api = {
   },
 };
 
+/** Taille max d'upload (garde pratique : presign R2 ne peut pas la borner côté serveur) */
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 Mo
+
 /** Upload direct vers R2 via presigned URL */
 export async function uploadToR2(file, folder = 'recettes') {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new Error('Image trop lourde (max 5 Mo)');
+  }
   const { uploadUrl, publicUrl } = await api.upload.presign(file.name, folder);
   const res = await fetch(uploadUrl, {
     method: 'PUT',

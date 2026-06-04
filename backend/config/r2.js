@@ -68,6 +68,18 @@ export async function presignUpload(folder, filename) {
   return { uploadUrl, publicUrl, key };
 }
 
+/**
+ * Vrai si l'URL est vide/absente, ou si elle pointe vers le bucket R2 public.
+ * Refuse toute URL externe arbitraire (anti tracking / SSRF-via-navigateur).
+ * Si R2 n'est pas configuré, on ne peut pas restreindre → on laisse passer.
+ */
+export function isAllowedImageUrl(url) {
+  if (!url) return true;
+  const base = process.env.R2_PUBLIC_URL?.replace(/\/+$/, '');
+  if (!base) return true;
+  return url.startsWith(base + '/');
+}
+
 /** Déduit la clé R2 depuis une URL publique (null si l'URL n'appartient pas au bucket). */
 export function keyFromPublicUrl(url) {
   if (!url || !process.env.R2_PUBLIC_URL) return null;

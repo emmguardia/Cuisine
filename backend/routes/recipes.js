@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { getPool } from '../config/database.js';
 import { requireAuth } from '../middleware/auth.js';
-import { deleteFromR2 } from '../config/r2.js';
+import { deleteFromR2, isAllowedImageUrl } from '../config/r2.js';
 
 const router = Router();
 
@@ -68,6 +68,9 @@ router.get('/:id', async (req, res) => {
 router.post('/', requireAuth, async (req, res) => {
   const { title, description, image_url, tags, time, difficulty, servings, ingredients, steps } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: 'Le titre est requis' });
+  if (!isAllowedImageUrl(image_url)) {
+    return res.status(400).json({ error: "L'image doit être uploadée via le site" });
+  }
 
   const id = randomUUID();
   let slug = toSlug(title);
@@ -107,6 +110,9 @@ router.put('/:id', requireAuth, async (req, res) => {
 
   const { title, description, image_url, tags, time, difficulty, servings, ingredients, steps } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: 'Le titre est requis' });
+  if (!isAllowedImageUrl(image_url)) {
+    return res.status(400).json({ error: "L'image doit être uploadée via le site" });
+  }
 
   await getPool().execute(`
     UPDATE recipe SET

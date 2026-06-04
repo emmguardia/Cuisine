@@ -12,6 +12,7 @@
 import { Router } from 'express';
 import { getPool } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { deleteFromR2 } from '../config/r2.js';
 
 const router = Router();
 router.use(requireAdmin); // toutes les routes ici = admin only
@@ -68,7 +69,17 @@ router.delete('/users/:id', async (req, res) => {
   const [rows] = await pool.execute('SELECT id FROM `user` WHERE id = ?', [req.params.id]);
   if (!rows.length) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
+  // Images des recettes de l'utilisateur (supprimées en cascade par la DB) → nettoyage R2
+  const [recipeRows] = await pool.execute(
+    'SELECT image_url FROM recipe WHERE author_id = ?', [req.params.id]
+  );
+
   await pool.execute('DELETE FROM `user` WHERE id = ?', [req.params.id]);
+
+  for (const r of recipeRows) {
+    if (r.image_url) await deleteFromR2(r.image_url);
+  }
+
   res.json({ message: 'Utilisateur supprimé' });
 });
 
