@@ -61,7 +61,8 @@ router.put('/:id', async (req, res) => {
 
   const { name, role, photo_url } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Le nom est requis' });
-  if (!isAllowedImageUrl(photo_url)) {
+  // On ne valide que si la photo change (les membres existants ne sont pas bloqués)
+  if (photo_url !== rows[0].photo_url && !isAllowedImageUrl(photo_url)) {
     return res.status(400).json({ error: "La photo doit être uploadée via le site" });
   }
 

@@ -110,7 +110,8 @@ router.put('/:id', requireAuth, async (req, res) => {
 
   const { title, description, image_url, tags, time, difficulty, servings, ingredients, steps } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: 'Le titre est requis' });
-  if (!isAllowedImageUrl(image_url)) {
+  // On ne valide que si l'image change (les recettes existantes ne sont pas bloquées)
+  if (image_url !== rows[0].image_url && !isAllowedImageUrl(image_url)) {
     return res.status(400).json({ error: "L'image doit être uploadée via le site" });
   }
 
