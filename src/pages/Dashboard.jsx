@@ -25,15 +25,19 @@ function readDraft() {
 }
 
 /* ─── Formulaire recette ─────────────────────────────────────────────── */
-function RecipeModal({ recipe, onClose, onSaved }) {
+export function RecipeModal({ recipe, onClose, onSaved }) {
   const isNew = !recipe?.id;
 
-  /* Initialisation : draft localStorage pour nouvelles recettes */
+  /* Initialisation : draft localStorage pour nouvelles recettes.
+     Défauts sûrs : la liste ne renvoie pas ingredients/steps → on évite le crash .map */
   const [form, setForm] = useState(() => {
     if (recipe) {
       return {
+        ...EMPTY_FORM,
         ...recipe,
-        tags: Array.isArray(recipe.tags) ? recipe.tags.join(', ') : recipe.tags || '',
+        tags:        Array.isArray(recipe.tags) ? recipe.tags.join(', ') : recipe.tags || '',
+        ingredients: recipe.ingredients?.length ? recipe.ingredients : [''],
+        steps:       recipe.steps?.length       ? recipe.steps       : [''],
       };
     }
     return readDraft() ?? EMPTY_FORM;
@@ -70,6 +74,26 @@ function RecipeModal({ recipe, onClose, onSaved }) {
     clearTimeout(draftTimer.current);
     clearTimeout(feedbackTimer.current);
   }, []);
+
+  /* ── Édition : récupérer la recette complète (ingrédients/étapes/description
+       absents de la liste, présents seulement sur l'endpoint détail) */
+  useEffect(() => {
+    if (!recipe?.id || (recipe.ingredients && recipe.steps)) return;
+    let cancelled = false;
+    api.recipes.get(recipe.id)
+      .then(full => {
+        if (cancelled || !full) return;
+        setForm(f => ({
+          ...f,
+          ...full,
+          tags:        Array.isArray(full.tags) ? full.tags.join(', ') : (full.tags || ''),
+          ingredients: full.ingredients?.length ? full.ingredients : [''],
+          steps:       full.steps?.length       ? full.steps       : [''],
+        }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [recipe?.id]);
 
   /* ── Handlers stables (useCallback → évite re-render des champs) */
   const set = useCallback((key, val) =>

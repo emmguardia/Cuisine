@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { api } from '../lib/api';
 
 /* ── Hero ─────────────────────────────────────────────────────────── */
 function Hero() {
@@ -191,13 +193,20 @@ function Guardia() {
   );
 }
 
-/* ── Recettes (aperçu) ───────────────────────────────────────────── */
+/* ── Recettes (aperçu) — les 3 dernières recettes publiées ────────── */
 function RecettesApercu() {
-  const recipes = [
-    { image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&q=75', title: 'Pâtes carbonara', time: '20 min', tag: 'Facile' },
-    { image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&auto=format&q=75', title: 'Tarte aux pommes', time: '45 min', tag: 'Moyen' },
-    { image: 'https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=600&auto=format&q=75', title: 'Risotto champignons', time: '35 min', tag: 'Difficile' },
-  ];
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.recipes.list()
+      .then(d => setRecipes((d.recipes || []).slice(0, 3)))
+      .catch(() => setRecipes([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Pas de section vide : si aucune recette une fois le chargement terminé, on n'affiche rien
+  if (!loading && recipes.length === 0) return null;
 
   return (
     <section className="py-24 px-6 bg-cream-100">
@@ -217,20 +226,36 @@ function RecettesApercu() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {recipes.map((r, i) => (
-            <div key={i} className="group bg-white rounded-2xl overflow-hidden shadow-cream hover:shadow-warm transition-all duration-300 hover:-translate-y-1">
-              <div className="relative h-52 overflow-hidden">
-                <img src={r.image} alt={r.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
-                <div className="absolute top-3 right-3 bg-white/95 text-orange-600 font-nunito text-xs font-bold px-3 py-1 rounded-full">
-                  {r.time}
+          {loading
+            ? [...Array(3)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-cream animate-pulse">
+                  <div className="h-52 bg-orange-50" />
+                  <div className="p-5"><div className="h-5 bg-orange-50 rounded-full w-2/3" /></div>
                 </div>
-              </div>
-              <div className="p-5 flex items-center justify-between">
-                <h3 className="font-playfair text-lg font-semibold text-warm-900">{r.title}</h3>
-                <span className="font-nunito text-xs font-semibold px-3 py-1 rounded-full bg-orange-100 text-orange-700">{r.tag}</span>
-              </div>
-            </div>
-          ))}
+              ))
+            : recipes.map((r) => (
+                <a key={r.id} href={`/recette?id=${r.id}`}
+                  className="group block bg-white rounded-2xl overflow-hidden shadow-cream hover:shadow-warm transition-all duration-300 hover:-translate-y-1">
+                  <div className="relative h-52 overflow-hidden bg-orange-50">
+                    {r.image_url && (
+                      <img src={r.image_url} alt={r.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
+                    )}
+                    {r.time && (
+                      <div className="absolute top-3 right-3 bg-white/95 text-orange-600 font-nunito text-xs font-bold px-3 py-1 rounded-full">
+                        {r.time}
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-5 flex items-center justify-between gap-2">
+                    <h3 className="font-playfair text-lg font-semibold text-warm-900 line-clamp-1">{r.title}</h3>
+                    {(r.difficulty || (r.tags && r.tags[0])) && (
+                      <span className="font-nunito text-xs font-semibold px-3 py-1 rounded-full bg-orange-100 text-orange-700 flex-shrink-0">
+                        {r.difficulty || r.tags[0]}
+                      </span>
+                    )}
+                  </div>
+                </a>
+              ))}
         </div>
       </div>
     </section>
