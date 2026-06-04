@@ -9,7 +9,7 @@ import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { getPool } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
-import { deleteFromR2 } from '../config/r2.js';
+import { deleteFromR2, isAllowedImageUrl } from '../config/r2.js';
 
 const router = Router();
 
@@ -30,6 +30,9 @@ router.use(requireAdmin);
 router.post('/', async (req, res) => {
   const { name, role, photo_url } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Le nom est requis' });
+  if (!isAllowedImageUrl(photo_url)) {
+    return res.status(400).json({ error: "La photo doit être uploadée via le site" });
+  }
 
   const id = randomUUID();
   const [[agg]] = await getPool().execute(
@@ -58,6 +61,9 @@ router.put('/:id', async (req, res) => {
 
   const { name, role, photo_url } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Le nom est requis' });
+  if (!isAllowedImageUrl(photo_url)) {
+    return res.status(400).json({ error: "La photo doit être uploadée via le site" });
+  }
 
   await getPool().execute(
     'UPDATE team_member SET name = ?, role = ?, photo_url = ? WHERE id = ?',
