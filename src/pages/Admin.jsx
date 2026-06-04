@@ -3,11 +3,13 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { authClient } from '../lib/auth-client';
 import { api, uploadToR2 } from '../lib/api';
+import { RecipeModal } from './Dashboard';
 
 /* ─── Onglet Recettes ────────────────────────────────────────────────── */
 function AdminRecipes() {
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -27,6 +29,7 @@ function AdminRecipes() {
   if (loading) return <TableSkeleton cols={5} />;
 
   return (
+    <>
     <div>
       <div className="flex items-center justify-between mb-6">
         <p className="font-nunito text-warm-500">{recipes.length} recette{recipes.length > 1 ? 's' : ''}</p>
@@ -78,6 +81,10 @@ function AdminRecipes() {
                         className="px-3 py-1.5 text-xs font-semibold text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
                         Voir
                       </a>
+                      <button onClick={() => setEditing(r)}
+                        className="px-3 py-1.5 text-xs font-semibold text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
+                        Modifier
+                      </button>
                       <button onClick={() => handleDelete(r.id, r.title)}
                         className="px-3 py-1.5 text-xs font-semibold text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
                         Supprimer
@@ -91,6 +98,15 @@ function AdminRecipes() {
         </div>
       )}
     </div>
+
+    {editing && (
+      <RecipeModal
+        recipe={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => { setEditing(null); load(); }}
+      />
+    )}
+    </>
   );
 }
 
