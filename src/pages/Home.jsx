@@ -48,12 +48,14 @@ function Hero() {
         </div>
       </div>
 
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 animate-float">
-        <span className="font-nunito text-xs text-white/50 tracking-widest uppercase">Découvrir</span>
-        <svg className="w-5 h-5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </div>
+      <a href="#mission">
+        <div className="absolute bottom-8 left-0 right-0 z-10 flex flex-col items-center gap-2 animate-float">
+          <span className="font-nunito text-xs text-white/50 tracking-widest uppercase">Découvrir</span>
+          <svg className="w-5 h-5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </a>
     </section>
   );
 }
@@ -61,7 +63,7 @@ function Hero() {
 /* ── Mission ──────────────────────────────────────────────────────── */
 function Mission() {
   return (
-    <section className="py-24 px-6 bg-cream-100">
+    <section className="py-24 px-6 bg-cream-100" id="mission">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-16 items-center">
           <div className="flex-1">
