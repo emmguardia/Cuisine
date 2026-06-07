@@ -14,11 +14,11 @@ function Section({ title, children }) {
   );
 }
 
-function Row({ label, value }) {
+function Row({ label, children }) {
   return (
     <div className="flex flex-col sm:flex-row sm:gap-4">
       <span className="font-semibold text-warm-800 sm:w-52 flex-shrink-0">{label}</span>
-      <span>{value}</span>
+      <span>{children}</span>
     </div>
   );
 }
@@ -42,23 +42,22 @@ export default function MentionsLegales() {
           <div className="bg-white rounded-3xl p-8 md:p-10 shadow-cream">
 
             <Section title="Éditeur du site">
-              <Row label="Nom de l'association" value="Club Quisine" />
-              <Row label="Forme juridique" value="Association loi 1901" />
-              <Row label="Siège social" value="50 Rue de Marseille, 69007 Lyon, France" />
-              <Row label="Établissement" value="Guardia Cybersecurity School — Groupe Quest Education" />
-              <Row label="Responsable de publication" value="Damien Dathueyt, Président" />
-              <Row label="Contact éditeur" value="ddathueyt@guardiaschool.fr" />
+              <Row label="Nom de l'association">Club Quisine</Row>
+              <Row label="Forme juridique">Association loi 1901</Row>
+              <Row label="Siège social">Guardia Cybersecurity School<br />50 Rue de Marseille<br />69007 Lyon, France</Row>
+              <Row label="Responsable de publication">Damien Dathueyt, Président</Row>
+              <Row label="Contact éditeur">ddathueyt@guardiaschool.fr</Row>
             </Section>
 
             <Section title="Développement & technique">
-              <Row label="Responsable technique" value="Enzo Monnet-Mata, Trésorier" />
-              <Row label="Contact technique" value="emonnet-mata@guardiaschool.fr" />
+              <Row label="Responsable technique">Enzo Monnet-Mata, Trésorier</Row>
+              <Row label="Contact technique">emonnet-mata@guardiaschool.fr</Row>
             </Section>
 
             <Section title="Hébergement">
-              <Row label="Hébergeur" value="Infrastructure auto-hébergée sur serveur dédié" />
-              <Row label="Prestataire serveur" value="Serveur dédié auto-hébergé — propriété privée" />
-              <Row label="Gestion DNS & certificats" value="Cloudflare, Inc. — 101 Townsend St, San Francisco, CA 94107, USA" />
+              <Row label="Hébergeur">Infrastructure auto-hébergée sur serveur dédié</Row>
+              <Row label="Prestataire serveur">Serveur dédié auto-hébergé — propriété privée</Row>
+              <Row label="Gestion DNS & certificats">Cloudflare, Inc.<br />101 Townsend St, San Francisco, CA 94107, USA</Row>
             </Section>
 
             <Section title="Propriété intellectuelle">
@@ -79,7 +78,7 @@ export default function MentionsLegales() {
             </Section>
 
             <p className="font-nunito text-xs text-warm-400 mt-8 pt-6 border-t border-orange-100">
-              Dernière mise à jour : {new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}
+              Dernière mise à jour : 7 Juin 2026
             </p>
           </div>
 
