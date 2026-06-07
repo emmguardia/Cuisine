@@ -44,7 +44,7 @@ export default function MentionsLegales() {
             <Section title="Éditeur du site">
               <Row label="Nom de l'association">Club Quisine</Row>
               <Row label="Forme juridique">Association loi 1901</Row>
-              <Row label="Siège social">50 Rue de Marseille<br />69007 Lyon, France</Row>
+              <Row label="Siège social">Guardia Cybersecurity School<br />50 Rue de Marseille<br />69007 Lyon, France</Row>
               <Row label="Responsable de publication">Damien Dathueyt, Président</Row>
               <Row label="Contact éditeur">ddathueyt@guardiaschool.fr</Row>
             </Section>
