@@ -1,0 +1,444 @@
+# « Corriger les CVE et redéployer » — Club Quisine
+#
+# DEUX FAÇONS DE LE DÉCLENCHER
+#
+#   1. workflow_dispatch — le bouton dans l'onglet Actions. Contrôle total :
+#      tu choisis la stratégie et tu coches « deployer » pour publier.
+#      C'est LE seul chemin qui peut déployer.
+#
+#   2. repository_dispatch (type: cve-detected) — appelable par API, prévu pour
+#      l'outil de détection de CVE externe. TOUJOURS en essai à blanc :
+#      il met à jour les deps, rebuild depuis des bases fraîches, rejoue
+#      audit + build + Trivy, et écrit le rapport dans le résumé du job.
+#      Il ne publie RIEN et ne déploie RIEN, quoi qu'il y ait dans le payload.
+#
+#      Déclenchement :
+#        gh api repos/${{ github.repository }}/dispatches \
+#          -f event_type=cve-detected
+#
+#      Avec une stratégie explicite (optionnel) :
+#        gh api repos/${{ github.repository }}/dispatches \
+#          -f event_type=cve-detected \
+#          -F 'client_payload[strategie]=majeures-incluses'
+#
+#      Le token a besoin de la permission `contents: write` sur le repo.
+#      Note GitHub : repository_dispatch ne s'exécute que sur la branche par
+#      défaut, quelle que soit la branche visée.
+#
+# PAS DE CRON. Rien ne se déclenche tout seul dans le temps.
+#
+# Actions épinglées par SHA (tag en commentaire), comme dans build-and-push.yml.
+#
+# À SAVOIR SUR CE DÉPÔT
+# Il n'a ni lint (aucune config eslint) ni test réel (le script `test` du
+# backend est `node --test` mais aucun fichier de test n'existe). Les seuls
+# garde-fous après une mise à jour sont donc l'audit, le build Vite et le scan
+# Trivy. En « majeures-incluses », relis le diff de près : rien ne rattrapera
+# une régression fonctionnelle.
+
+name: Corriger les CVE et redéployer
+
+on:
+  workflow_dispatch:
+    inputs:
+      strategie:
+        description: "Ampleur de la mise à jour des dépendances"
+        required: true
+        default: patch-et-mineur
+        type: choice
+        options:
+          # Respecte les plages semver déclarées dans package.json.
+          - patch-et-mineur
+          # `pnpm update --latest` : franchit les versions majeures.
+          # Ici cela ferait notamment passer React 18 -> 19 et Tailwind 3 -> 4,
+          # deux migrations à faire à la main, pas par un bouton.
+          - majeures-incluses
+          # Ne touche à aucune dépendance : reconstruit seulement les images
+          # depuis des bases fraîches. Le bon choix quand la CVE vient d'Alpine,
+          # de nginx ou de Node, pas d'un paquet npm.
+          - images-de-base-seules
+      deployer:
+        description: "Déployer si tout est propre (décocher pour un essai à blanc)"
+        required: true
+        default: true
+        type: boolean
+
+  repository_dispatch:
+    types: [cve-detected]
+
+env:
+  REGISTRY: ghcr.io
+  TRIVY_IMAGE: aquasec/trivy:0.73.0
+  PNPM_VERSION: 10.33.4
+  NODE_VERSION: '26'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fix-cve-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  corriger:
+    name: Corriger, tester, scanner, déployer
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      # ── 0. Résolution des paramètres selon l'origine du déclenchement ───────
+      # Le client_payload est une entrée externe : il est lu via une variable
+      # d'environnement (jamais interpolé directement dans le shell, ce qui
+      # serait une injection de script) et validé contre une liste blanche.
+      - name: Résoudre les paramètres
+        id: params
+        env:
+          EVENT: ${{ github.event_name }}
+          IN_STRATEGIE: ${{ inputs.strategie }}
+          IN_DEPLOYER: ${{ inputs.deployer }}
+          CP_STRATEGIE: ${{ github.event.client_payload.strategie }}
+          CP_RAISON: ${{ github.event.client_payload.raison }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "repository_dispatch" ]; then
+            STRATEGIE="${CP_STRATEGIE:-patch-et-mineur}"
+            # Verrouillé : un déclenchement API ne déploie jamais.
+            DEPLOYER="false"
+            ORIGINE="API (repository_dispatch) — essai à blanc forcé"
+          else
+            STRATEGIE="${IN_STRATEGIE}"
+            DEPLOYER="${IN_DEPLOYER}"
+            ORIGINE="Manuel (workflow_dispatch)"
+          fi
+
+          case "$STRATEGIE" in
+            patch-et-mineur|majeures-incluses|images-de-base-seules) ;;
+            *)
+              echo "::error::Stratégie invalide : « ${STRATEGIE} »."
+              exit 1
+              ;;
+          esac
+
+          echo "strategie=$STRATEGIE" >> "$GITHUB_OUTPUT"
+          echo "deployer=$DEPLOYER"   >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Déclenchement"
+            echo "- Origine : ${ORIGINE}"
+            echo "- Stratégie : \`${STRATEGIE}\`"
+            echo "- Déploiement : $([ "$DEPLOYER" = "true" ] && echo 'oui' || echo 'non — essai à blanc')"
+            if [ -n "${CP_RAISON:-}" ]; then
+              echo "- Raison transmise par l'outil : ${CP_RAISON}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # ── 1. Mise à jour des dépendances ──────────────────────────────────────
+      # `pnpm update` respecte .npmrc, donc minimum-release-age=1440 : aucune
+      # version publiée depuis moins de 24 h n'est retenue, y compris ici.
+      - name: Mettre à jour les dépendances
+        id: maj
+        env:
+          STRATEGIE: ${{ steps.params.outputs.strategie }}
+        run: |
+          set -euo pipefail
+          if [ "$STRATEGIE" = "images-de-base-seules" ]; then
+            echo "Stratégie « images-de-base-seules » : aucune dépendance touchée."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          FLAGS=""
+          [ "$STRATEGIE" = "majeures-incluses" ] && FLAGS="--latest"
+
+          echo "::group::frontend (racine) — pnpm update $FLAGS"
+          pnpm install --frozen-lockfile && pnpm update $FLAGS
+          echo "::endgroup::"
+
+          echo "::group::backend — pnpm update $FLAGS"
+          (cd backend && pnpm install --frozen-lockfile && pnpm update $FLAGS)
+          echo "::endgroup::"
+
+          if git diff --quiet -- package.json pnpm-lock.yaml backend/package.json backend/pnpm-lock.yaml; then
+            echo "Aucune mise à jour disponible."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Dépendances"
+              echo "Aucune mise à jour disponible sous cette stratégie."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Dépendances mises à jour"
+              echo '```'
+              git diff --stat -- package.json pnpm-lock.yaml backend/package.json backend/pnpm-lock.yaml
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # ── 2. Contrôles ────────────────────────────────────────────────────────
+      - name: Frontend – install
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Frontend – audit (prod, high+)
+        run: pnpm audit --prod --audit-level high
+
+      # Seul contrôle disponible côté frontend : ni lint ni test sur ce dépôt.
+      - name: Frontend – build
+        run: pnpm run build
+
+      - name: Backend – install
+        working-directory: backend
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Backend – audit (prod, high+)
+        working-directory: backend
+        run: pnpm audit --prod --audit-level high
+
+      - name: Backend – tests (if present)
+        working-directory: backend
+        run: pnpm run --if-present test
+
+      # ── 3. Version et build des images ──────────────────────────────────────
+      - name: Bump version
+        id: tag
+        run: |
+          set -euo pipefail
+          CONTENT=$(cat version.txt | tr -d '\r\n ')
+          MAJOR=$(echo "$CONTENT" | cut -d. -f1)
+          MINOR=$(echo "$CONTENT" | cut -d. -f2)
+          PATCH=$(echo "$CONTENT" | cut -d. -f3)
+          if ! [[ "$MAJOR" =~ ^[0-9]+$ ]] || ! [[ "$MINOR" =~ ^[0-9]+$ ]] || ! [[ "$PATCH" =~ ^[0-9]+$ ]]; then
+            echo "::error::version.txt invalide: $CONTENT (attendu X.Y.Z)"; exit 1
+          fi
+          PATCH=$(( PATCH < 9 ? PATCH + 1 : 0 ))
+          [ "$PATCH" -eq 0 ] && MINOR=$((MINOR + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "$NEW_VERSION" > version.txt
+          echo "tag=v${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      # `pull: true` + `no-cache: true` est le cœur du sujet quand la CVE vient
+      # de l'image de base : sans eux, Docker réutiliserait la couche node/nginx
+      # en cache, correctifs Alpine compris… c'est-à-dire non compris.
+      #
+      # Build UNIQUE chargé en local : c'est ce binaire précis qui sera scanné
+      # puis, le cas échéant, publié tel quel. Pas de second build.
+      - name: Frontend — build (local)
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          load: true
+          push: false
+          tags: cuisine-front:candidate
+          pull: true
+          no-cache: true
+
+      - name: Backend — build (local)
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: ./backend
+          load: true
+          push: false
+          tags: cuisine-back:candidate
+          pull: true
+          no-cache: true
+
+      # ── 4. Scan Trivy AVANT publication ─────────────────────────────────────
+      - name: Trivy — frontend et backend
+        id: trivy
+        run: |
+          set -uo pipefail
+          FAIL=0
+          for img in cuisine-front cuisine-back; do
+            echo "::group::Trivy $img"
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH \
+              --ignore-unfixed --skip-version-check --format table \
+              "$img:candidate" | tee "/tmp/$img.txt" || FAIL=1
+            echo "::endgroup::"
+          done
+
+          {
+            echo "### Scan Trivy"
+            if [ "$FAIL" = "0" ]; then
+              echo "Aucune vulnérabilité CRITICAL ou HIGH corrigeable."
+              echo ""
+              echo "_Rappel : \`--ignore-unfixed\` masque les CVE sans correctif disponible._"
+              echo "_Un scan vert veut dire « rien de corrigeable », pas « zéro CVE »._"
+            else
+              echo "**Vulnérabilités restantes — publication annulée.**"
+              echo '```'
+              grep -hE "CRITICAL|HIGH" /tmp/cuisine-*.txt | head -40 || true
+              echo '```'
+              echo "Relancez en « majeures-incluses » si le correctif exige une version majeure."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit "$FAIL"
+
+      # ── 5. Publication et déploiement (workflow_dispatch + deployer coché) ──
+      - name: Log in to GHCR
+        if: steps.params.outputs.deployer == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push frontend
+        if: steps.params.outputs.deployer == 'true'
+        id: push-front
+        env:
+          TARGET: ${{ env.REGISTRY }}/${{ github.repository_owner }}/cuisine-front:${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          docker tag cuisine-front:candidate "$TARGET"
+          PUSH_OUT=$(docker push "$TARGET" | tee /dev/stderr)
+          DIGEST=$(docker buildx imagetools inspect "$TARGET" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+          if [ -z "$DIGEST" ]; then
+            DIGEST=$(printf '%s\n' "$PUSH_OUT" | grep -oE 'sha256:[0-9a-f]{64}' | tail -1 || true)
+          fi
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Push backend
+        if: steps.params.outputs.deployer == 'true'
+        id: push-back
+        env:
+          TARGET: ${{ env.REGISTRY }}/${{ github.repository_owner }}/cuisine-back:${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          docker tag cuisine-back:candidate "$TARGET"
+          PUSH_OUT=$(docker push "$TARGET" | tee /dev/stderr)
+          DIGEST=$(docker buildx imagetools inspect "$TARGET" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+          if [ -z "$DIGEST" ]; then
+            DIGEST=$(printf '%s\n' "$PUSH_OUT" | grep -oE 'sha256:[0-9a-f]{64}' | tail -1 || true)
+          fi
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      # Le pin du digest est ce qu'ArgoCD observe : c'est cette étape, et pas le
+      # push GHCR, qui déclenche réellement le déploiement.
+      - name: Pin digest + commit
+        if: steps.params.outputs.deployer == 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          BRANCH: ${{ github.ref_name }}
+          DIGEST_FRONT: ${{ steps.push-front.outputs.digest }}
+          DIGEST_BACK: ${{ steps.push-back.outputs.digest }}
+          OWNER: ${{ github.repository_owner }}
+          REG: ${{ env.REGISTRY }}
+        run: |
+          set -euo pipefail
+          VALUES="charts/cuisine/values.yaml"
+
+          update_image() {
+            local key="$1" newref="$2"
+            if ! grep -qE "^[[:space:]]+image:[[:space:]]*ghcr\.io/.*${key}[@:]" "$VALUES"; then
+              echo "::error::Aucune ligne 'image:' pour ${key} dans ${VALUES}. Le pin de digest aurait échoué en silence."
+              exit 1
+            fi
+            sed -i -E "s|^([[:space:]]+)image:[[:space:]]*ghcr\.io/.*${key}[@:].*|\1image: ${newref}|" "$VALUES"
+            if ! grep -qF "image: ${newref}" "$VALUES"; then
+              echo "::error::Le remplacement de ${key} n'a pas pris dans ${VALUES}."
+              exit 1
+            fi
+          }
+
+          if [ -n "${DIGEST_FRONT:-}" ]; then
+            IMAGE_FRONT="${REG}/${OWNER}/cuisine-front@${DIGEST_FRONT}"
+          else
+            IMAGE_FRONT="${REG}/${OWNER}/cuisine-front:${TAG}"
+            echo "::warning::Digest frontend introuvable, pin sur le tag ${TAG}."
+          fi
+          if [ -n "${DIGEST_BACK:-}" ]; then
+            IMAGE_BACK="${REG}/${OWNER}/cuisine-back@${DIGEST_BACK}"
+          else
+            IMAGE_BACK="${REG}/${OWNER}/cuisine-back:${TAG}"
+            echo "::warning::Digest backend introuvable, pin sur le tag ${TAG}."
+          fi
+
+          update_image "cuisine-front" "$IMAGE_FRONT"
+          update_image "cuisine-back"  "$IMAGE_BACK"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.txt "$VALUES" \
+                  package.json pnpm-lock.yaml \
+                  backend/package.json backend/pnpm-lock.yaml
+
+          if git diff --staged --quiet; then
+            echo "::warning::Rien à commiter."
+          else
+            git commit -m "fix(sécurité): correction CVE et rebuild ${TAG} [skip ci]"
+
+            pushed=false
+            for attempt in 1 2 3; do
+              if git push origin "HEAD:${BRANCH}"; then
+                pushed=true
+                break
+              fi
+              echo "::warning::Push refusé (tentative ${attempt}/3), rebase sur origin/${BRANCH}…"
+              git fetch origin "$BRANCH"
+              if ! git rebase "origin/${BRANCH}"; then
+                git rebase --abort || true
+                echo "::error::Conflit de rebase sur ${BRANCH}, intervention manuelle requise."
+                exit 1
+              fi
+              sleep $((attempt * 3))
+            done
+            if [ "$pushed" != "true" ]; then
+              echo "::error::Impossible de pousser après 3 tentatives."
+              exit 1
+            fi
+          fi
+
+          {
+            echo "### Déploiement"
+            echo "- Version : \`${TAG}\`"
+            echo "- Frontend : \`${IMAGE_FRONT}\`"
+            echo "- Backend : \`${IMAGE_BACK}\`"
+            echo ""
+            echo "ArgoCD synchronise le cluster dans les minutes qui suivent."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── 6. Essai à blanc : rapport et marche à suivre ────────────────────────
+      - name: Essai à blanc — rien n'a été publié
+        if: steps.params.outputs.deployer != 'true'
+        env:
+          STRATEGIE: ${{ steps.params.outputs.strategie }}
+          CHANGED: ${{ steps.maj.outputs.changed }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/fix-cve.yml
+        run: |
+          {
+            echo "### Essai à blanc — validation manuelle requise"
+            echo ""
+            echo "Audit, build et scan Trivy sont **passés**. Aucune image publiée, aucun déploiement."
+            echo ""
+            if [ "${CHANGED:-false}" = "true" ]; then
+              echo "Des dépendances ont été mises à jour (voir le diff plus haut) mais **rien n'a été commité** :"
+              echo "ces changements sont perdus à la fin du job. Ils seront recalculés à l'identique au prochain lancement."
+            else
+              echo "Aucune dépendance n'a bougé — seules les images de base ont été reconstruites."
+            fi
+            echo ""
+            echo "**Pour appliquer :**"
+            echo "1. Ouvrir [le workflow](${RUN_URL})"
+            echo "2. « Run workflow » → stratégie \`${STRATEGIE}\` → cocher **deployer**"
+            echo ""
+            echo "_Un déclenchement par API ne peut pas déployer : c'est volontaire._"
+          } >> "$GITHUB_STEP_SUMMARY"

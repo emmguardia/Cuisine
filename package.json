@@ -2,6 +2,11 @@
   "name": "club-quisine",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  },
   "dependencies": {
     "better-auth": "^1.6.11",
     "react": "^18.2.0",
@@ -18,5 +23,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
+    "auditConfig": {
+      "ignoreGhsas": []
+    }
   }
 }
