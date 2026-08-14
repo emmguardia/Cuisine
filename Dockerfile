@@ -2,15 +2,30 @@
 # Alpine ~5MB vs Debian ~1GB : surface d'attaque réduite
 FROM node:26-alpine AS builder
 
+ENV PNPM_HOME=/pnpm \
+    PATH=/pnpm:$PATH
+
 WORKDIR /app
 
-COPY package*.json ./
-RUN apk update && apk upgrade --no-cache \
-    && if [ -f package-lock.json ]; then npm ci --no-audit --no-fund --loglevel=error; else npm install --no-audit --no-fund --loglevel=error; fi
+RUN apk update && apk upgrade --no-cache
+
+# pnpm épinglé. Pas de corepack : il a été retiré du bundle Node à partir de
+# Node 25/26.
+RUN npm install -g pnpm@10.33.4 --no-audit --no-fund
+
+# Manifestes d'abord : la couche d'install reste en cache tant qu'ils ne
+# changent pas. .npmrc porte minimum-release-age=1440 et ignore-scripts=true.
+COPY package.json pnpm-lock.yaml .npmrc ./
+
+# --frozen-lockfile : échoue si le lockfile ne correspond pas au package.json,
+# au lieu de le régénérer en silence. La version précédente retombait sur
+# `npm install` quand le lockfile manquait, ce qui rendait les builds
+# non reproductibles.
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN npm run build
+RUN pnpm run build
 
 # Stage 2: Image finale nginx NON privilégiée (tourne en uid 101, écrit dans /tmp)
 # Stage nommé "runtime" → exclu du cache CI (no-cache-filters) pour toujours

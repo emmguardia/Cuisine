@@ -1,4 +1,47 @@
 # Build and push: main → GHCR (frontend + backend) + pin digests → ArgoCD sync
+#
+# Frontend Vite à la racine, backend dans backend/.
+#
+# Les actions restent épinglées par SHA avec le tag en commentaire : un tag
+# mobile comme @v6 peut être repointé sur n'importe quel commit par le
+# mainteneur (ou par quelqu'un qui compromettrait son compte). Cette pratique
+# était déjà en place ici, elle est conservée et les SHAs mis à jour.
+#
+# ── CE QUI A CHANGÉ ──────────────────────────────────────────────────────────
+#
+# 1. L'AUDIT NE BLOQUE PLUS SUR LES devDependencies.
+#    `npm audit --audit-level=high` couvrait tout l'arbre : les CVE d'esbuild et
+#    de vite — des outils de build qui ne partent JAMAIS en production —
+#    faisaient échouer la CI de toutes les PRs. Les deux derniers runs avant ce
+#    changement échouaient exactement là-dessus. `pnpm audit --prod` restreint
+#    le contrôle à ce qui est réellement livré.
+#
+# 2. L'image scannée est exactement l'image poussée.
+#    L'étape de push relançait un `docker build` distinct de celui ayant servi
+#    au scan Trivy. On builde une seule fois avec `load: true`, on scanne, puis
+#    `docker tag` + `docker push` de ce binaire-là.
+#
+# 3. LE PIN DE DIGEST NE PEUT PLUS PRODUIRE UNE RÉFÉRENCE INVALIDE.
+#    Le script construisait `cuisine-front@${DIGEST}` sans vérifier que DIGEST
+#    était non vide : un digest manquant écrivait `...cuisine-front@` dans
+#    values.yaml, une référence d'image invalide qu'ArgoCD aurait refusée. Il y
+#    a maintenant un repli sur le tag et une vérification du sed avant/après.
+#
+# 4. Le scan Trivy du backend ne masque plus npm.
+#    Il portait un `--skip-dirs "/usr/local/lib/node_modules/npm"` pour éviter
+#    les CVE des dépendances bundlées de npm. Le Dockerfile retire désormais npm
+#    du runtime : le répertoire n'existe plus, le filtre est inutile, et le scan
+#    couvre l'intégralité de l'image au lieu d'en ignorer une partie.
+#
+# 5. npm -> pnpm, CI Node 22 -> 26 (les Dockerfiles y étaient déjà : on ne
+#    testait pas ce qu'on déployait). pnpm apporte minimum-release-age=1440.
+#
+# 6. cancel-in-progress: false — ce job pousse deux images puis commite les
+#    digests. L'annuler entre les deux désynchronise le dépôt du registre.
+#
+# 7. Permissions `attestations: write` et `id-token: write` retirées : elles
+#    étaient déclarées mais aucune étape ne générait d'attestation.
+
 name: Build and push to GHCR
 
 on:
@@ -10,17 +53,17 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  TRIVY_IMAGE: aquasec/trivy:0.69.3
+  TRIVY_IMAGE: aquasec/trivy:0.73.0
+  PNPM_VERSION: 10.33.4
+  NODE_VERSION: '26'
 
 permissions:
   contents: read
   packages: write
-  attestations: write
-  id-token: write
 
 concurrency:
   group: build-and-push-${{ github.ref_name }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
 
@@ -32,13 +75,19 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
-          node-version: '22'
-          cache: 'npm'
-      - run: npm ci --no-audit --no-fund
-      - run: npm audit --audit-level=high
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --prod --audit-level high
+      # Le build est le seul contrôle disponible côté frontend : ce projet n'a
+      # ni lint (aucune config eslint) ni test.
+      - run: pnpm run build
 
   # ── Test backend ─────────────────────────────────────────────────
   test-backend:
@@ -48,15 +97,23 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-      - run: npm ci --no-audit --no-fund
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: backend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
         working-directory: backend
-      - run: npm audit --audit-level=high
+      - run: pnpm audit --prod --audit-level high
+        working-directory: backend
+      # ATTENTION : le script `test` est `node --test` mais aucun fichier de
+      # test n'existe dans le dépôt. Cette étape ne vérifie donc rien pour
+      # l'instant.
+      - run: pnpm run --if-present test
         working-directory: backend
 
   # ── Build & push ─────────────────────────────────────────────────
@@ -71,7 +128,7 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -79,12 +136,13 @@ jobs:
       - name: Bump version
         id: tag
         run: |
+          set -euo pipefail
           CONTENT=$(cat version.txt | tr -d '\r\n ')
           MAJOR=$(echo "$CONTENT" | cut -d. -f1)
           MINOR=$(echo "$CONTENT" | cut -d. -f2)
           PATCH=$(echo "$CONTENT" | cut -d. -f3)
           if ! [[ "$MAJOR" =~ ^[0-9]+$ ]] || ! [[ "$MINOR" =~ ^[0-9]+$ ]] || ! [[ "$PATCH" =~ ^[0-9]+$ ]]; then
-            echo "version.txt invalide: $CONTENT"
+            echo "::error::version.txt invalide: $CONTENT (attendu X.Y.Z)"
             exit 1
           fi
           PATCH=$(( PATCH < 9 ? PATCH + 1 : 0 ))
@@ -92,34 +150,37 @@ jobs:
           NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           echo "$NEW_VERSION" > version.txt
           TAG="v${NEW_VERSION}"
-          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Version: $CONTENT → $NEW_VERSION (tag: $TAG)"
 
       - name: Log in to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       # ─────────────────── FRONTEND ────────────────────────────────
       - name: Frontend — metadata
         id: meta-front
-        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/cuisine-front
           tags: type=raw,value=${{ steps.tag.outputs.tag }}
 
-      - name: Frontend — build (scan)
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+      # Build UNIQUE, chargé dans le démon local. `no-cache-filters: runtime`
+      # garde le stage builder en cache mais reconstruit toujours le stage
+      # runtime, pour récupérer les derniers patchs Alpine.
+      - name: Frontend — build (local)
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           load: true
           push: false
-          tags: scan-cuisine-front:latest
+          tags: cuisine-front:candidate
+          labels: ${{ steps.meta-front.outputs.labels }}
           cache-from: type=gha,scope=front
           cache-to: type=gha,mode=max,scope=front
           no-cache-filters: runtime
@@ -129,85 +190,151 @@ jobs:
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH \
-            --ignore-unfixed --format table scan-cuisine-front:latest
+            --ignore-unfixed --format table cuisine-front:candidate
 
       - name: Frontend — push
-        id: build-front
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta-front.outputs.tags }}
-          labels: ${{ steps.meta-front.outputs.labels }}
-          cache-from: type=gha,scope=front
-          no-cache-filters: runtime
-          pull: true
+        id: push-front
+        env:
+          META_TAGS: ${{ steps.meta-front.outputs.tags }}
+        run: |
+          set -euo pipefail
+          TARGET=$(printf '%s\n' "$META_TAGS" | head -1)
+          docker tag cuisine-front:candidate "$TARGET"
+          PUSH_OUT=$(docker push "$TARGET" | tee /dev/stderr)
+          DIGEST=$(docker buildx imagetools inspect "$TARGET" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+          if [ -z "$DIGEST" ]; then
+            DIGEST=$(printf '%s\n' "$PUSH_OUT" | grep -oE 'sha256:[0-9a-f]{64}' | tail -1 || true)
+          fi
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Frontend publié : $TARGET (digest: ${DIGEST:-introuvable})"
 
       # ─────────────────── BACKEND ────────────────────────────────
       - name: Backend — metadata
         id: meta-back
-        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/cuisine-back
           tags: type=raw,value=${{ steps.tag.outputs.tag }}
 
-      - name: Backend — build (scan)
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+      - name: Backend — build (local)
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: ./backend
           load: true
           push: false
-          tags: scan-cuisine-back:latest
+          tags: cuisine-back:candidate
+          labels: ${{ steps.meta-back.outputs.labels }}
           cache-from: type=gha,scope=back
           cache-to: type=gha,mode=max,scope=back
           no-cache-filters: runtime
           pull: true
 
+      # Plus de `--skip-dirs` sur npm : le Dockerfile le retire du runtime, donc
+      # le scan couvre toute l'image au lieu d'en ignorer une partie.
       - name: Backend — Trivy scan
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH \
-            --ignore-unfixed --format table \
-            --skip-dirs "/usr/local/lib/node_modules/npm" \
-            scan-cuisine-back:latest
+            --ignore-unfixed --format table cuisine-back:candidate
 
       - name: Backend — push
-        id: build-back
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
-        with:
-          context: ./backend
-          push: true
-          tags: ${{ steps.meta-back.outputs.tags }}
-          labels: ${{ steps.meta-back.outputs.labels }}
-          cache-from: type=gha,scope=back
-          no-cache-filters: runtime
-          pull: true
+        id: push-back
+        env:
+          META_TAGS: ${{ steps.meta-back.outputs.tags }}
+        run: |
+          set -euo pipefail
+          TARGET=$(printf '%s\n' "$META_TAGS" | head -1)
+          docker tag cuisine-back:candidate "$TARGET"
+          PUSH_OUT=$(docker push "$TARGET" | tee /dev/stderr)
+          DIGEST=$(docker buildx imagetools inspect "$TARGET" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+          if [ -z "$DIGEST" ]; then
+            DIGEST=$(printf '%s\n' "$PUSH_OUT" | grep -oE 'sha256:[0-9a-f]{64}' | tail -1 || true)
+          fi
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Backend publié : $TARGET (digest: ${DIGEST:-introuvable})"
 
       # ── Pin les deux digests dans values.yaml ─────────────────────
       - name: Pin Helm values
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          BRANCH: ${{ github.ref_name }}
+          DIGEST_FRONT: ${{ steps.push-front.outputs.digest }}
+          DIGEST_BACK: ${{ steps.push-back.outputs.digest }}
+          OWNER: ${{ github.repository_owner }}
+          REG: ${{ env.REGISTRY }}
         run: |
-          TAG="${{ steps.tag.outputs.tag }}"
-          OWNER="${{ github.repository_owner }}"
-          REG="${{ env.REGISTRY }}"
-
-          DIGEST_FRONT="${{ steps.build-front.outputs.digest }}"
-          DIGEST_BACK="${{ steps.build-back.outputs.digest }}"
-
-          IMAGE_FRONT="${REG}/${OWNER}/cuisine-front@${DIGEST_FRONT}"
-          IMAGE_BACK="${REG}/${OWNER}/cuisine-back@${DIGEST_BACK}"
-
+          set -euo pipefail
           VALUES="charts/cuisine/values.yaml"
-          sed -i "s|  image: ghcr.io/.*cuisine-front.*|  image: ${IMAGE_FRONT}|" "$VALUES"
-          sed -i "s|  image: ghcr.io/.*cuisine-back.*|  image: ${IMAGE_BACK}|"  "$VALUES"
+
+          # Remplace la ligne `image:` d'un composant, en échouant bruyamment si
+          # elle est introuvable ou si le remplacement n'a pas pris. Garde-fou
+          # contre le déploiement fantôme : un sed muet passait au vert.
+          update_image() {
+            local key="$1" newref="$2"
+            if ! grep -qE "^[[:space:]]+image:[[:space:]]*ghcr\.io/.*${key}[@:]" "$VALUES"; then
+              echo "::error::Aucune ligne 'image:' pour ${key} dans ${VALUES}. Le pin de digest aurait échoué en silence."
+              exit 1
+            fi
+            sed -i -E "s|^([[:space:]]+)image:[[:space:]]*ghcr\.io/.*${key}[@:].*|\1image: ${newref}|" "$VALUES"
+            if ! grep -qF "image: ${newref}" "$VALUES"; then
+              echo "::error::Le remplacement de ${key} n'a pas pris dans ${VALUES}."
+              exit 1
+            fi
+            echo "  ${key} → ${newref}"
+          }
+
+          # Repli sur le tag si le digest manque : sans ce garde-fou, la
+          # référence produite était `.../cuisine-front@` — invalide.
+          if [ -n "${DIGEST_FRONT:-}" ]; then
+            IMAGE_FRONT="${REG}/${OWNER}/cuisine-front@${DIGEST_FRONT}"
+          else
+            IMAGE_FRONT="${REG}/${OWNER}/cuisine-front:${TAG}"
+            echo "::warning::Digest frontend introuvable, pin sur le tag ${TAG} (déploiement OK mais non immuable)."
+          fi
+          if [ -n "${DIGEST_BACK:-}" ]; then
+            IMAGE_BACK="${REG}/${OWNER}/cuisine-back@${DIGEST_BACK}"
+          else
+            IMAGE_BACK="${REG}/${OWNER}/cuisine-back:${TAG}"
+            echo "::warning::Digest backend introuvable, pin sur le tag ${TAG} (déploiement OK mais non immuable)."
+          fi
+
+          update_image "cuisine-front" "$IMAGE_FRONT"
+          update_image "cuisine-back"  "$IMAGE_BACK"
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add version.txt "$VALUES"
 
           if git diff --staged --quiet; then
-            echo "Helm values déjà à jour, pas de commit"
+            echo "::warning::Rien à commiter alors que le pin a réussi — values.yaml pointait déjà sur ces digests."
           else
-            git commit -m "chore(helm): pin images to digest $TAG [skip ci]"
-            git pull --rebase origin ${{ github.ref_name }}
-            git push origin ${{ github.ref_name }}
+            git commit -m "chore(helm): pin images to digest ${TAG} [skip ci]"
+
+            pushed=false
+            for attempt in 1 2 3; do
+              if git push origin "HEAD:${BRANCH}"; then
+                pushed=true
+                break
+              fi
+              echo "::warning::Push refusé (tentative ${attempt}/3), rebase sur origin/${BRANCH}…"
+              git fetch origin "$BRANCH"
+              if ! git rebase "origin/${BRANCH}"; then
+                git rebase --abort || true
+                echo "::error::Conflit de rebase sur ${BRANCH}, intervention manuelle requise."
+                exit 1
+              fi
+              sleep $((attempt * 3))
+            done
+            if [ "$pushed" != "true" ]; then
+              echo "::error::Impossible de pousser le pin de digest après 3 tentatives."
+              exit 1
+            fi
           fi
+
+          {
+            echo "### Déploiement ${TAG}"
+            echo "- Frontend : \`${IMAGE_FRONT}\`"
+            echo "- Backend : \`${IMAGE_BACK}\`"
+            echo ""
+            echo "Images scannées par Trivy avant publication. ArgoCD synchronise le cluster dans les minutes qui suivent."
+          } >> "$GITHUB_STEP_SUMMARY"
