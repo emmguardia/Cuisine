@@ -7,7 +7,7 @@ metadata:
     {{- include "cuisine.labels" . | nindent 4 }}
 spec:
   entryPoints:
-    - web
+    - websecure
   routes:
     - match: "Host(`quisine.zenixweb.fr`)"
       kind: Rule
@@ -18,3 +18,4 @@ spec:
         - name: security-headers
         - name: crowdsec-bouncer
           namespace: kube-system
+  tls: {}
