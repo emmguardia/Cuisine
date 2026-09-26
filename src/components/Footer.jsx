@@ -34,7 +34,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="flex flex-col gap-5 max-w-xs">
             <a href="/" className="inline-block">
-              <img src="/images/logo.png" alt="Club Quisine" className="h-16 w-auto brightness-0 invert opacity-90" />
+              <img src="/images/logo_full_white.svg" alt="Club Quisine" className="h-16 w-auto" />
             </a>
             <p className="font-nunito text-sm leading-relaxed text-white/55">
               L'association culinaire de la Guardia Cybersecurity School. On cuisine chaque semaine pour les étudiants et on assure la restauration d'événements.

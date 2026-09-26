@@ -59,11 +59,9 @@ export default function Header({ solid = false }) {
         {/* Logo */}
         <a href="/" className="flex-shrink-0 group">
           <img
-            src="/images/logo.png"
+            src={scrolled || menuOpen ? "/images/logo_full_black.svg" : "/images/logo_full_white.svg"}
             alt="Club Quisine"
-            className={`h-[52px] md:h-[88px] w-auto transition-all duration-300 group-hover:scale-105 ${
-              scrolled || menuOpen ? '' : 'brightness-0 invert'
-            }`}
+            className={`h-[52px] md:h-[88px] w-auto transition-all duration-300 group-hover:scale-105 p-2`}
           />
         </a>
 
