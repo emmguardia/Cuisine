@@ -9,12 +9,18 @@ const ORIGIN = process.env.BETTER_AUTH_URL || 'https://quisine.zenixweb.fr';
 // Plus fiable que req.ip qui dépend du nombre exact de proxies (CF→Traefik→nginx).
 const clientIpKey = (req) => req.headers['cf-connecting-ip'] || req.ip;
 
+// Les sondes liveness/readiness de kubelet tapent /api/health ~150 fois par
+// fenêtre de 15 min depuis la même IP : sans cette exception, le limiter
+// renvoie 429 au bout de ~10 min et kubelet tue le pod en boucle.
+const isHealthCheck = (req) => req.method === 'GET' && req.originalUrl.split('?')[0] === '/api/health';
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: clientIpKey,
+  skip: isHealthCheck,
   message: { error: 'Trop de requêtes, réessayez dans 15 minutes' },
 });
 
