@@ -17,8 +17,10 @@ RUN npm install -g pnpm@10.33.4 --no-audit --no-fund
 # native, donc pnpm.onlyBuiltDependencies est volontairement absent.
 COPY package.json pnpm-lock.yaml .npmrc ./
 
+# Parenthèses : le « || true » ne doit couvrir que le prune, sinon il masque
+# un échec de l'install et le build continue sans node_modules.
 RUN pnpm install --prod --frozen-lockfile \
-    && pnpm store prune 2>/dev/null || true
+    && (pnpm store prune 2>/dev/null || true)
 
 # ── Stage 2 : image finale ────────────────────────────────────────────
 # Stage nommé "runtime" → exclu du cache CI (no-cache-filters) pour toujours

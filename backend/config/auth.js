@@ -86,6 +86,10 @@ export const auth = betterAuth({
         type:         'string',
         defaultValue: 'membre',
         required:     true,
+        // Sans ça, Better Auth accepte le champ dans /api/auth/update-user :
+        // n'importe quel membre pourrait s'auto-promouvoir admin. Le rôle ne
+        // se fixe que côté serveur (hooks ci-dessous, routes admin).
+        input:        false,
       },
     },
   },
