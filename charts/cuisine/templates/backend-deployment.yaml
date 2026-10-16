@@ -125,6 +125,19 @@ spec:
                   name: quisine-secrets
                   key: r2-public-url
                   optional: true
+            # ── Intégrations de paiement (clés scellées dans quisine-secrets) ──
+            - name: HELLOASSO_CLIENT_ID
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: helloasso-client-id, optional: true } }
+            - name: HELLOASSO_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: helloasso-client-secret, optional: true } }
+            - name: HELLOASSO_ORG_SLUG
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: helloasso-org-slug, optional: true } }
+            - name: HELLOASSO_WEBHOOK_TOKEN
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: helloasso-webhook-token, optional: true } }
+            - name: SUMUP_MERCHANT_CODE
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: sumup-merchant-code, optional: true } }
+            - name: SUMUP_API_KEY
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: sumup-api-key, optional: true } }
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           startupProbe:
