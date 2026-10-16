@@ -12,6 +12,8 @@ import teamRouter     from './routes/team.js';
 import comptaRouter   from './routes/compta.js';
 import membersRouter  from './routes/members.js';
 import eventsRouter   from './routes/events.js';
+import integrationsRouter from './routes/integrations.js';
+import webhooksRouter from './routes/webhooks.js';
 
 /**
  * Table de montage des routes métier. Exportée pour le test d'autorisation,
@@ -25,6 +27,7 @@ export const ROUTES = [
   { path: '/api/admin/compta',   router: comptaRouter },
   { path: '/api/admin/membres',  router: membersRouter },
   { path: '/api/admin/evenements', router: eventsRouter },
+  { path: '/api/admin/integrations', router: integrationsRouter },
   { path: '/api/admin',          router: adminRouter },
   { path: '/api/upload',         router: uploadRouter },
   { path: '/api/team',           router: teamRouter },
@@ -53,6 +56,9 @@ export function createApp() {
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', service: 'cuisine-backend' });
   });
+
+  /* ── Notifications entrantes (protégées par jeton, voir routes/webhooks.js) ── */
+  app.use('/api/webhooks', webhooksRouter);
 
   /* ── Routes métier ───────────────────────────────────────────────── */
   for (const { path, router } of ROUTES) app.use(path, router);

@@ -29,6 +29,8 @@ export const ACTION_LABELS = {
   'event.delete':            'Événement supprimé',
   'event.link':              'Opération rattachée à un événement',
   'event.unlink':            'Opération détachée d\'un événement',
+  'integration.sync':        'Synchronisation automatique',
+  'compta.import_cli':       'Import lancé en ligne de commande',
 };
 
 /** Résumé lisible d'une ligne d'audit. */
@@ -39,6 +41,8 @@ export function describeEntry(e) {
   if (d.number && d.label) return `${d.number} — ${d.label}`;
   if (d.number) return d.number;
   if (d.filename) return d.filename;
+  if (d.created != null && d.trigger) return `${d.created} opération(s) créée(s)${d.numbers?.length ? ` : ${d.numbers.slice(0, 6).join(', ')}` : ''}`;
+  if (d.note) return d.note;
   if (d.imported != null) return `${d.imported} opération(s), ${d.members ?? 0} adhérent(s), ${d.events ?? 0} événement(s)`;
   if (d.email) return d.email;
   if (d.name)  return d.name;

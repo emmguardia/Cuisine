@@ -50,6 +50,12 @@ spec:
               valueFrom: { secretKeyRef: { name: quisine-secrets, key: db-user } }
             - name: DB_PASSWORD
               valueFrom: { secretKeyRef: { name: quisine-secrets, key: db-password } }
+            # Compte dédié aux migrations (droits de structure) ; le backend, lui,
+            # n'a que SELECT/INSERT/UPDATE/DELETE. Optionnel : à défaut, DB_USER.
+            - name: DB_MIGRATOR_USER
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: db-migrator-user, optional: true } }
+            - name: DB_MIGRATOR_PASSWORD
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: db-migrator-password, optional: true } }
             - name: SEED_ADMIN_EMAILS
               valueFrom: { secretKeyRef: { name: quisine-secrets, key: seed-admin-emails, optional: true } }
           resources:

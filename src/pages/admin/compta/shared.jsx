@@ -55,7 +55,7 @@ export function EntryStatus({ status }) {
 }
 
 /* ─── Préparation des justificatifs avant envoi ─────────────────────────
- * Les photos sont réencodées en JPEG (2000 px max) : cela retire les
+ * Les photos sont réencodées en JPEG (1600 px max) : cela retire les
  * métadonnées EXIF (dont la position GPS du téléphone) et allège l'envoi.
  * Les PDF partent tels quels. */
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -69,13 +69,14 @@ export async function prepareFile(file) {
 
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => null);
   if (!bitmap) throw new Error(`${file.name} : image illisible par le navigateur (essayez en JPEG)`);
-  const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+  // 1600 px suffisent pour lire un ticket ; JPEG 0,8 : ~150 à 300 Ko par photo.
+  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
   canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close?.();
-  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.8));
   if (!blob || blob.size > MAX_BYTES) throw new Error(`${file.name} : image trop lourde`);
   return { blob, name: file.name.replace(/\.[^.]+$/, '') + '.jpg' };
 }

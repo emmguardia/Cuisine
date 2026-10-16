@@ -47,8 +47,17 @@ async function seedAdmins(db) {
   console.log(`[migrate] Whitelist admins : ${emails.length} email(s) seeded`);
 }
 
+/* Les migrations passent par un compte dédié (droits de structure) quand il est
+ * fourni ; le compte du backend n'a que les droits sur les données. */
+function migratorCredentials() {
+  const { DB_MIGRATOR_USER: user, DB_MIGRATOR_PASSWORD: password } = process.env;
+  return user && password ? { user, password } : {};
+}
+
 async function main() {
-  const db = createKysely(1);
+  const creds = migratorCredentials();
+  console.log(`[migrate] Compte : ${creds.user ? 'migrations (dédié)' : 'applicatif'}`);
+  const db = createKysely(1, creds);
   const migrator = createMigrator(db);
 
   try {

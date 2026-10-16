@@ -13,6 +13,8 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 const ORIGIN = 'https://quisine.test';
+const WEBHOOK_TOKEN = 'a'.repeat(64);
+process.env.HELLOASSO_WEBHOOK_TOKEN = WEBHOOK_TOKEN;
 process.env.ALLOWED_ORIGINS = ORIGIN;
 process.env.BETTER_AUTH_URL = ORIGIN;
 
@@ -153,4 +155,13 @@ test('ajouter un email admin en direct est refusé (double validation)', async (
 test('la route de changement de rôle direct n\'existe plus', async () => {
   const res = await call('PATCH', `/api/admin/users/${FAKE_ID}`, { user: 'admin', body: { role: 'admin' } });
   assert.equal(res.status, 404);
+});
+
+test('webhook HelloAsso : mauvais jeton → 404, bon jeton → 202 (sans session ni Origin)', async () => {
+  const post = (token) => fetch(`${base}/api/webhooks/helloasso/${token}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"eventType":"Payment"}',
+  });
+  assert.equal((await post('b'.repeat(64))).status, 404);
+  assert.equal((await post('court')).status, 404);
+  assert.equal((await post(WEBHOOK_TOKEN)).status, 202);
 });

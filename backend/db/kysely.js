@@ -24,10 +24,10 @@ export function forceUtc(pool) {
   return pool;
 }
 
-export function createKysely(connectionLimit = 5) {
+export function createKysely(connectionLimit = 5, overrides = {}) {
   return new Kysely({
     dialect: new MysqlDialect({
-      pool: forceUtc(createPool({ ...connectionOptions(), waitForConnections: true, connectionLimit })),
+      pool: forceUtc(createPool({ ...connectionOptions(), ...overrides, waitForConnections: true, connectionLimit })),
     }),
   });
 }
