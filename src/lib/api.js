@@ -77,6 +77,11 @@ export const api = {
     remove: (id)          => req(`/admin/membres/${id}`, { method: 'DELETE' }),
   },
 
+  integrations: {
+    status: ()         => req('/admin/integrations'),
+    sync:   (provider) => req(`/admin/integrations/${provider}/sync`, { method: 'POST' }),
+  },
+
   evenements: {
     list:   ()                 => req('/admin/evenements'),
     get:    (id)               => req(`/admin/evenements/${id}`),
