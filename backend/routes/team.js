@@ -29,8 +29,11 @@ router.use(requireAdmin);
 
 /* ── POST /api/team — ajouter ───────────────────────────────────────── */
 router.post('/', async (req, res) => {
-  const { name, role, photo_url } = req.body;
+  const { name, role, photo_url, member_id } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Le nom est requis' });
+  if (member_id != null && !/^[0-9a-f-]{36}$/.test(String(member_id))) {
+    return res.status(400).json({ error: 'Adhérent invalide' });
+  }
   if (!isAllowedImageUrl(photo_url)) {
     return res.status(400).json({ error: "La photo doit être uploadée via le site" });
   }
@@ -41,11 +44,17 @@ router.post('/', async (req, res) => {
   );
   const sort_order = agg.maxOrder + 1;
 
-  await getPool().execute(
-    `INSERT INTO team_member (id, name, role, photo_url, sort_order, created_at)
-     VALUES (?, ?, ?, ?, ?, NOW(3))`,
-    [id, name.trim(), role?.trim() || null, photo_url || null, sort_order]
-  );
+  try {
+    await getPool().execute(
+      `INSERT INTO team_member (id, name, role, photo_url, sort_order, member_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW(3))`,
+      [id, name.trim(), role?.trim() || null, photo_url || null, sort_order, member_id || null]
+    );
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Cet adhérent fait déjà partie de l\'équipe' });
+    if (err.code === 'ER_NO_REFERENCED_ROW_2') return res.status(400).json({ error: 'Adhérent introuvable' });
+    throw err;
+  }
 
   await audit(getPool(), req, 'team.create', { targetType: 'team_member', targetId: id, details: { name: name.trim() } });
 
@@ -62,17 +71,26 @@ router.put('/:id', async (req, res) => {
   );
   if (!rows.length) return res.status(404).json({ error: 'Membre introuvable' });
 
-  const { name, role, photo_url } = req.body;
+  const { name, role, photo_url, member_id } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Le nom est requis' });
+  if (member_id != null && !/^[0-9a-f-]{36}$/.test(String(member_id))) {
+    return res.status(400).json({ error: 'Adhérent invalide' });
+  }
   // On ne valide que si la photo change (les membres existants ne sont pas bloqués)
   if (photo_url !== rows[0].photo_url && !isAllowedImageUrl(photo_url)) {
     return res.status(400).json({ error: "La photo doit être uploadée via le site" });
   }
 
-  await getPool().execute(
-    'UPDATE team_member SET name = ?, role = ?, photo_url = ? WHERE id = ?',
-    [name.trim(), role?.trim() || null, photo_url || null, req.params.id]
-  );
+  try {
+    await getPool().execute(
+      'UPDATE team_member SET name = ?, role = ?, photo_url = ?, member_id = ? WHERE id = ?',
+      [name.trim(), role?.trim() || null, photo_url || null, member_id || null, req.params.id]
+    );
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Cet adhérent fait déjà partie de l\'équipe' });
+    if (err.code === 'ER_NO_REFERENCED_ROW_2') return res.status(400).json({ error: 'Adhérent introuvable' });
+    throw err;
+  }
 
   // Si la photo a changé, on nettoie l'ancienne dans le bucket
   const oldPhoto = rows[0].photo_url;

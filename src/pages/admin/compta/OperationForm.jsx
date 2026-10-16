@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, uploadAttachment } from '../../../lib/api';
 import { navigate } from '../../../lib/router';
 import { btn, input, Notice, Modal, RequestDialog } from '../ui';
@@ -57,6 +57,33 @@ function toPayload(f) {
  *  mode="correct" : correction directe par l'auteur (15 min)
  *  mode="request" : demande de correction (double validation)
  */
+/** Choix du membre : liste des adhérents, ou saisie libre (« Autre personne »). */
+function MemberPicker({ id, value, onChange }) {
+  const [members, setMembers] = useState([]);
+  useEffect(() => {
+    api.membres.list().then(d => setMembers(d.members.map(m => `${m.first_name} ${m.last_name}`).sort((a, b) => a.localeCompare(b, 'fr'))))
+      .catch(() => setMembers([]));
+  }, []);
+  const known = members.includes(value);
+  const [other, setOther] = useState(false);
+  const showInput = other || (value && !known && members.length > 0);
+  return (
+    <div className="space-y-2">
+      <select id={id} required={!showInput} value={showInput ? '__autre' : value}
+        onChange={e => { if (e.target.value === '__autre') { setOther(true); onChange(''); } else { setOther(false); onChange(e.target.value); } }}
+        className={input}>
+        <option value="">Choisir un adhérent…</option>
+        {members.map(n => <option key={n} value={n}>{n}</option>)}
+        <option value="__autre">Autre personne…</option>
+      </select>
+      {showInput && (
+        <input aria-label="Nom de la personne" required maxLength={255} value={value} onChange={e => onChange(e.target.value)}
+          placeholder="Prénom Nom" className={input} />
+      )}
+    </div>
+  );
+}
+
 export default function OperationForm({ mode = 'create', initial = null, operationId = null, onCancel }) {
   const { meta, error: metaError } = useComptaMeta();
   const [f, setF] = useState(() => fromOperation(initial));
@@ -189,8 +216,7 @@ export default function OperationForm({ mode = 'create', initial = null, operati
         {f.kind === 'virement' && f.to === 'membre' && (
           <div className="max-w-sm">
             {label('Membre remboursé', 'op-member')}
-            <input id="op-member" required maxLength={255} value={f.third_party}
-              onChange={e => set({ third_party: e.target.value })} className={input} />
+            <MemberPicker id="op-member" value={f.third_party} onChange={(v) => set({ third_party: v })} />
           </div>
         )}
 
@@ -205,8 +231,11 @@ export default function OperationForm({ mode = 'create', initial = null, operati
               </div>
               <div>
                 {label(f.treasury === 'membre' ? 'Membre qui a payé' : f.kind === 'depense' ? 'Fournisseur (facultatif)' : 'Payeur (facultatif)', 'op-third')}
-                <input id="op-third" maxLength={255} value={f.third_party} onChange={e => set({ third_party: e.target.value })}
-                  required={f.treasury === 'membre'} className={input} />
+                {f.treasury === 'membre' ? (
+                  <MemberPicker id="op-third" value={f.third_party} onChange={(v) => set({ third_party: v })} />
+                ) : (
+                  <input id="op-third" maxLength={255} value={f.third_party} onChange={e => set({ third_party: e.target.value })} className={input} />
+                )}
               </div>
             </div>
 

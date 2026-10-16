@@ -4,6 +4,8 @@
  * POST   /api/admin/membres                      → ajouter
  * PUT    /api/admin/membres/:id                  → modifier
  * DELETE /api/admin/membres/:id                  → supprimer (droit à l'effacement)
+ * PATCH  /api/admin/membres/:id/mail-guardia     → renseigner le mail @guardiaschool.fr
+ * POST   /api/admin/membres/:id/equipe           → ajouter à l'équipe (/equipe)
  */
 import { Router } from 'express';
 import { z } from 'zod';
@@ -11,7 +13,9 @@ import { withTransaction } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { adminUserLimiter } from '../config/security.js';
 import { validate } from '../middleware/validate.js';
-import { MemberInput, listMembers, createMember, updateMember, deleteMember } from '../services/members.js';
+import {
+  MemberInput, SchoolEmail, listMembers, createMember, updateMember, deleteMember, setSchoolEmail, addToTeam,
+} from '../services/members.js';
 
 const router = Router();
 router.use(requireAdmin, adminUserLimiter);
@@ -39,5 +43,19 @@ router.delete('/:id', validate({ params: IdParams }), async (req, res) => {
   await withTransaction(conn => deleteMember(conn, req.valid.params.id, actorOf(req), req));
   res.json({ message: 'Adhérent supprimé' });
 });
+
+router.patch('/:id/mail-guardia',
+  validate({ params: IdParams, body: z.object({ school_email: SchoolEmail }).strict() }),
+  async (req, res) => {
+    await withTransaction(conn => setSchoolEmail(conn, req.valid.params.id, req.valid.body.school_email ?? null, actorOf(req), req));
+    res.json({ message: 'Mail Guardia enregistré' });
+  });
+
+router.post('/:id/equipe',
+  validate({ params: IdParams, body: z.object({ role: z.string().trim().max(255).optional() }).strict() }),
+  async (req, res) => {
+    const teamId = await withTransaction(conn => addToTeam(conn, req.valid.params.id, req.valid.body.role, actorOf(req), req));
+    res.status(201).json({ team_id: teamId });
+  });
 
 export default router;
