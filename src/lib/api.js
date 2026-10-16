@@ -14,7 +14,11 @@ async function req(path, options = {}) {
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `Erreur ${res.status}`);
+    const err = new Error(data.error || `Erreur ${res.status}`);
+    err.status  = res.status;
+    err.code    = data.code;
+    err.details = data.details;
+    throw err;
   }
 
   const text = await res.text();
@@ -34,12 +38,36 @@ export const api = {
   admin: {
     recipes:        ()          => req('/admin/recipes'),
     users:          ()          => req('/admin/users'),
-    updateUserRole: (id, role)  => req(`/admin/users/${id}`,  { method: 'PATCH',  body: { role } }),
     deleteUser:     (id)        => req(`/admin/users/${id}`,  { method: 'DELETE' }),
     emails:         ()          => req('/admin/emails'),
     addEmail:       (data)      => req('/admin/emails',        { method: 'POST',   body: data }),
-    updateEmailRole:(id, role)  => req(`/admin/emails/${id}`, { method: 'PATCH',  body: { role } }),
     deleteEmail:    (id)        => req(`/admin/emails/${id}`,  { method: 'DELETE' }),
+  },
+
+  /* Demandes à double validation */
+  requests: {
+    list:    (status = 'pending') => req(`/admin/requests?status=${encodeURIComponent(status)}`),
+    summary: ()                   => req('/admin/requests/summary'),
+    create:  (data)               => req('/admin/requests',              { method: 'POST', body: data }),
+    approve: (id, comment)        => req(`/admin/requests/${id}/approve`, { method: 'POST', body: comment ? { comment } : {} }),
+    reject:  (id, comment)        => req(`/admin/requests/${id}/reject`,  { method: 'POST', body: comment ? { comment } : {} }),
+    cancel:  (id)                 => req(`/admin/requests/${id}/cancel`,  { method: 'POST' }),
+  },
+
+  audit: {
+    list: (params = {}) => req(`/admin/audit?${new URLSearchParams(params)}`),
+  },
+
+  compta: {
+    meta:       ()             => req('/admin/compta/meta'),
+    summary:    ()             => req('/admin/compta/summary'),
+    list:       (params = {})  => req(`/admin/compta/operations?${new URLSearchParams(params)}`),
+    get:        (id)           => req(`/admin/compta/operations/${id}`),
+    check:      (op)           => req('/admin/compta/operations/check', { method: 'POST', body: op }),
+    create:     (op)           => req('/admin/compta/operations',       { method: 'POST', body: op }),
+    correct:    (id, op)       => req(`/admin/compta/operations/${id}`, { method: 'PUT',  body: op }),
+    importLot:  (lot, dryRun)  => req(`/admin/compta/import?dry_run=${dryRun ? 1 : 0}`, { method: 'POST', body: lot }),
+    attachmentUrl: (id, download = false) => `${BASE}/admin/compta/attachments/${id}${download ? '?download=1' : ''}`,
   },
 
   team: {
@@ -74,4 +102,17 @@ export async function uploadToR2(file, folder = 'recettes') {
     throw new Error(`Échec upload R2 (${res.status})${text ? ' : ' + text : ''}`);
   }
   return publicUrl;
+}
+
+/** Joint un justificatif (corps binaire) à une opération. */
+export async function uploadAttachment(operationId, blob, filename) {
+  const res = await fetch(
+    `${BASE}/admin/compta/operations/${operationId}/attachments?filename=${encodeURIComponent(filename)}`,
+    { method: 'POST', credentials: 'include', headers: { 'Content-Type': blob.type }, body: blob }
+  );
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Erreur ${res.status}`);
+  }
+  return res.json();
 }

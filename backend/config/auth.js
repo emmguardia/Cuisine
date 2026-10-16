@@ -1,35 +1,16 @@
 import { betterAuth } from 'better-auth';
-import { Kysely, MysqlDialect } from 'kysely';
-import { createPool } from 'mysql2';          // pool callback → Kysely dialect
 import mysql from 'mysql2/promise';           // pool promise → raw queries dans les hooks
+import { createKysely, connectionOptions, forceUtc } from '../db/kysely.js';
 
 /* ── Instance Kysely pour Better Auth ────────────────────────────────── */
-const kyselyDb = new Kysely({
-  dialect: new MysqlDialect({
-    pool: createPool({
-      host:             process.env.DB_HOST,
-      user:             process.env.DB_USER,
-      password:         process.env.DB_PASSWORD,
-      database:         process.env.DB_NAME,
-      waitForConnections: true,
-      connectionLimit:  5,
-      timezone:         'Z',
-      charset:          'utf8mb4',
-    }),
-  }),
-});
+const kyselyDb = createKysely(5);
 
 /* ── Pool promise pour les requêtes raw dans les hooks ────────────────── */
-const pool = mysql.createPool({
-  host:             process.env.DB_HOST,
-  user:             process.env.DB_USER,
-  password:         process.env.DB_PASSWORD,
-  database:         process.env.DB_NAME,
+const pool = forceUtc(mysql.createPool({
+  ...connectionOptions(),
   waitForConnections: true,
   connectionLimit:  3,
-  timezone:         'Z',
-  charset:          'utf8mb4',
-});
+}));
 
 /* ── Vérifie l'email dans la table allowed_email ────────────────────────
  * Retourne { allowed: bool, role: string } ou null si DB inaccessible.

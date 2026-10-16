@@ -2,8 +2,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-
-const ORIGIN = process.env.BETTER_AUTH_URL || 'https://quisine.zenixweb.fr';
+import { allowedOrigins, requireSameOrigin } from '../middleware/origin.js';
 
 // Derrière Cloudflare, la vraie IP client est dans CF-Connecting-IP.
 // Plus fiable que req.ip qui dépend du nombre exact de proxies (CF→Traefik→nginx).
@@ -13,15 +12,42 @@ const clientIpKey = (req) => req.headers['cf-connecting-ip'] || req.ip;
 // fenêtre de 15 min depuis la même IP : sans cette exception, le limiter
 // renvoie 429 au bout de ~10 min et kubelet tue le pod en boucle.
 const isHealthCheck = (req) => req.method === 'GET' && req.originalUrl.split('?')[0] === '/api/health';
+const isAdminApi    = (req) => req.originalUrl.startsWith('/api/admin/');
 
+// Limite publique, par IP. Les routes admin ont leurs propres limites :
+// un membre du bureau qui saisit la compta dépasserait vite 100 requêtes.
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: clientIpKey,
-  skip: isHealthCheck,
+  skip: (req) => isHealthCheck(req) || isAdminApi(req),
   message: { error: 'Trop de requêtes, réessayez dans 15 minutes' },
+});
+
+// Plafond par IP sur /api/admin, avant authentification : borne le coût des
+// tentatives sans session (chaque requête interroge la base pour la session).
+const adminIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: clientIpKey,
+  message: { error: 'Trop de requêtes, réessayez dans 15 minutes' },
+});
+
+/**
+ * Limite par membre du bureau, après requireAdmin (clé = id utilisateur).
+ * Usage : router.use(requireAdmin, adminUserLimiter)
+ */
+export const adminUserLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `user:${req.user.id}`,
+  message: { error: 'Trop de requêtes, réessayez dans quelques minutes' },
 });
 
 const authLimiter = rateLimit({
@@ -44,16 +70,20 @@ export function applySecurityMiddleware(app) {
   }));
 
   app.use(cors({
-    origin: ORIGIN,
+    origin: allowedOrigins(),
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   }));
 
   app.use(compression());
 
-  // Rate limit global
+  // Rate limit global (public) et plafond par IP sur l'admin
   app.use('/api/', limiter);
+  app.use('/api/admin/', adminIpLimiter);
+
+  // CSRF : origine vérifiée sur toute requête qui modifie quelque chose
+  app.use('/api/', requireSameOrigin);
 
   // Rate limit renforcé sur l'auth
   app.use('/api/auth/', authLimiter);

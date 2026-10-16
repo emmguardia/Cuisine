@@ -1,0 +1,57 @@
+# Migrations de quisine_db (backend/scripts/migrate.js), lancées par ArgoCD
+# AVANT la mise à jour du backend (hook PreSync), avec la même image.
+# Si une migration échoue, la synchro s'arrête : l'ancien backend reste en place.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cuisine-migrate
+  namespace: {{ include "cuisine.namespace" . }}
+  labels:
+    {{- include "cuisine.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "cuisine.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: {{ .Values.backend.image }}
+          imagePullPolicy: {{ .Values.backend.imagePullPolicy }}
+          command: ["node", "scripts/migrate.js"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: DB_HOST
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: db-host } }
+            - name: DB_NAME
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: db-name } }
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: db-user } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: db-password } }
+            - name: SEED_ADMIN_EMAILS
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: seed-admin-emails, optional: true } }
+          resources:
+            requests: { cpu: "20m", memory: "64Mi" }
+            limits:   { cpu: "300m", memory: "192Mi" }

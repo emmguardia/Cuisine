@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto';
 import { getPool } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { deleteFromR2, isAllowedImageUrl } from '../config/r2.js';
+import { audit } from '../lib/audit.js';
 
 const router = Router();
 
@@ -46,6 +47,8 @@ router.post('/', async (req, res) => {
     [id, name.trim(), role?.trim() || null, photo_url || null, sort_order]
   );
 
+  await audit(getPool(), req, 'team.create', { targetType: 'team_member', targetId: id, details: { name: name.trim() } });
+
   res.status(201).json({
     id, name: name.trim(), role: role?.trim() || null,
     photo_url: photo_url || null, sort_order,
@@ -77,6 +80,9 @@ router.put('/:id', async (req, res) => {
     await deleteFromR2(oldPhoto);
   }
 
+  await audit(getPool(), req, 'team.update', {
+    targetType: 'team_member', targetId: req.params.id, details: { name: name.trim(), role: role?.trim() || null },
+  });
   res.json({ message: 'Membre mis à jour' });
 });
 
@@ -91,6 +97,7 @@ router.delete('/:id', async (req, res) => {
 
   if (rows[0].photo_url) await deleteFromR2(rows[0].photo_url);
 
+  await audit(getPool(), req, 'team.delete', { targetType: 'team_member', targetId: req.params.id });
   res.json({ message: 'Membre supprimé' });
 });
 

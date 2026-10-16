@@ -13,7 +13,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "migrate": "node scripts/migrate.js",
-    "test": "node --test",
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.js\"",
     "audit": "npm audit --audit-level=high"
   },
   "dependencies": {
@@ -29,7 +29,8 @@
     "kysely": "^0.28.17",
     "mysql2": "^3.24.4",
     "pino": "^9.14.0",
-    "pino-http": "^10.5.0"
+    "pino-http": "^10.5.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
