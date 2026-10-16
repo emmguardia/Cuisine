@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { jsonArray } from '../lib/json.js';
 import { randomUUID } from 'crypto';
 import { getPool } from '../config/database.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -16,9 +17,9 @@ function toSlug(title) {
 function parseRecipe(r) {
   return {
     ...r,
-    tags:        JSON.parse(r.tags        || '[]'),
-    ingredients: JSON.parse(r.ingredients || '[]'),
-    steps:       JSON.parse(r.steps       || '[]'),
+    tags:        jsonArray(r.tags),
+    ingredients: jsonArray(r.ingredients),
+    steps:       jsonArray(r.steps),
   };
 }
 
@@ -32,7 +33,7 @@ router.get('/', async (_req, res) => {
     JOIN \`user\` u ON r.author_id = u.id
     ORDER BY r.created_at DESC
   `);
-  res.json({ recipes: rows.map(r => ({ ...r, tags: JSON.parse(r.tags || '[]') })) });
+  res.json({ recipes: rows.map(r => ({ ...r, tags: jsonArray(r.tags) })) });
 });
 
 /* ── GET /api/recipes/mine — mes recettes (auth) ─────────────────────
@@ -46,7 +47,7 @@ router.get('/mine', requireAuth, async (req, res) => {
     WHERE author_id = ?
     ORDER BY created_at DESC
   `, [req.user.id]);
-  res.json({ recipes: rows.map(r => ({ ...r, tags: JSON.parse(r.tags || '[]') })) });
+  res.json({ recipes: rows.map(r => ({ ...r, tags: jsonArray(r.tags) })) });
 });
 
 /* ── GET /api/recipes/:id — détail (id ou slug, public) ─────────────── */

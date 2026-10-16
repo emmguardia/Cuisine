@@ -13,6 +13,7 @@
  * ci-dessous renvoient 409 REQUEST_REQUIRED dans ces cas.
  */
 import { Router } from 'express';
+import { jsonArray } from '../lib/json.js';
 import { z } from 'zod';
 import { getPool, withTransaction } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
@@ -37,7 +38,7 @@ router.get('/recipes', async (_req, res) => {
     JOIN \`user\` u ON r.author_id = u.id
     ORDER BY r.created_at DESC
   `);
-  res.json({ recipes: rows.map(r => ({ ...r, tags: JSON.parse(r.tags || '[]') })) });
+  res.json({ recipes: rows.map(r => ({ ...r, tags: jsonArray(r.tags) })) });
 });
 
 /* ── Comptes inscrits ───────────────────────────────────────────────── */

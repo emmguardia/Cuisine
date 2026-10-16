@@ -9,6 +9,7 @@ import { getPool } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { adminUserLimiter } from '../config/security.js';
 import { validate } from '../middleware/validate.js';
+import { jsonColumn } from '../lib/json.js';
 
 const router = Router();
 router.use(requireAdmin, adminUserLimiter);
@@ -44,7 +45,7 @@ router.get('/',
       entries: rows.map(r => ({
         ...r,
         id: Number(r.id),
-        details: typeof r.details === 'string' ? JSON.parse(r.details) : r.details,
+        details: jsonColumn(r.details),
       })),
     });
   });

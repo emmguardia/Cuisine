@@ -28,6 +28,7 @@ import { createHash, randomUUID } from 'crypto';
 import { getPool, withTransaction } from '../config/database.js';
 import { audit } from '../lib/audit.js';
 import { HttpError } from '../lib/errors.js';
+import { jsonColumn } from '../lib/json.js';
 
 export const EXPIRY_DAYS = 14;
 
@@ -61,7 +62,7 @@ function pendingKey(targetType, targetId) {
   return `${targetType}:${targetId ?? ''}`;
 }
 
-const parseJson = (v) => (typeof v === 'string' ? JSON.parse(v) : v ?? null);
+const parseJson = (v) => jsonColumn(v);
 
 function toApi(row) {
   return {
