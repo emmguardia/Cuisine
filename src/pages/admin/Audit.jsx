@@ -21,16 +21,25 @@ export const ACTION_LABELS = {
   'entry.cancel':            'Opération annulée (double validation)',
   'attachment.add':          'Justificatif ajouté',
   'compta.import':           'Lot importé',
+  'member.create':           'Adhérent ajouté',
+  'member.update':           'Adhérent modifié',
+  'member.delete':           'Adhérent supprimé',
+  'event.create':            'Événement créé',
+  'event.update':            'Événement modifié',
+  'event.delete':            'Événement supprimé',
+  'event.link':              'Opération rattachée à un événement',
+  'event.unlink':            'Opération détachée d\'un événement',
 };
 
 /** Résumé lisible d'une ligne d'audit. */
 export function describeEntry(e) {
   const d = e.details ?? {};
   if (d.type && REQUEST_TYPES[d.type]) return REQUEST_TYPES[d.type] + (d.reason ? ` — ${d.reason}` : '');
+  if (d.name && d.number) return `${d.name} — ${d.number} ${d.label ?? ''}`.trim();
   if (d.number && d.label) return `${d.number} — ${d.label}`;
   if (d.number) return d.number;
   if (d.filename) return d.filename;
-  if (d.imported != null) return `${d.imported} opération(s) importée(s)`;
+  if (d.imported != null) return `${d.imported} opération(s), ${d.members ?? 0} adhérent(s), ${d.events ?? 0} événement(s)`;
   if (d.email) return d.email;
   if (d.name)  return d.name;
   if (d.comment) return d.comment;

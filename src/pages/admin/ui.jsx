@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 /* ─── Composants communs de l'espace admin ───────────────────────────── */
 
 export const btn = {
-  primary:   'px-5 py-2.5 bg-orange-500 text-white font-nunito font-semibold text-sm rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-60',
-  secondary: 'px-5 py-2.5 border border-warm-200 text-warm-700 font-nunito font-semibold text-sm rounded-xl hover:bg-warm-50 transition-colors disabled:opacity-60',
+  primary:   'whitespace-nowrap px-5 py-2.5 bg-orange-500 text-white font-nunito font-semibold text-sm rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-60',
+  secondary: 'whitespace-nowrap px-5 py-2.5 border border-warm-200 text-warm-700 font-nunito font-semibold text-sm rounded-xl hover:bg-warm-50 transition-colors disabled:opacity-60',
   small:     'px-3 py-1.5 text-xs font-semibold text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-60',
   danger:    'px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-60',
 };

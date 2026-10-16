@@ -442,3 +442,11 @@ Fait :
 - nginx : 9 Mo max sur `/api/`, 40 Mo sur la seule route d'import.
 
 Reste pour plus tard : import CSV Crédit Mutuel direct (phase 3), exports Excel (phase 4), HelloAsso, SumUp, clôture.
+
+### Ajouts du 16/10/2026
+
+- Catégories au vocabulaire du bureau, regroupées en rentrées (adhésion, don, paiement, subvention…) et sorties (courses, matériel, Crédit Mutuel, frais bancaires…), filtre par catégorie et « remboursement de membre ».
+- Remboursement d'une avance de membre (virement vers membre, compte 467).
+- Adhérents : liste, ajout, modification, suppression, par saison et moyen de paiement (HelloAsso, SumUp, virement, espèces).
+- Événements (hors compta) : opérations rattachées, montant affecté facultatif, rentrées - dépenses = résultat ; suivent les corrections et annulations.
+- Accès API vérifiés : HelloAsso (User-Agent obligatoire, sinon 403) et SumUp (transactions, versements). Intégrations automatiques à coder.

@@ -14,6 +14,8 @@ import { z } from 'zod';
 import { getPool } from '../config/database.js';
 import { audit } from '../lib/audit.js';
 import { HttpError } from '../lib/errors.js';
+import { MemberInput, createMember } from './members.js';
+import { EventInput, createEvent, linkEntry } from './events.js';
 
 /* ── Comptes de trésorerie ─────────────────────────────────────────── */
 export const TREASURY_ACCOUNTS = {
@@ -54,7 +56,8 @@ const common = {
   notes:       Optional(2000),
 };
 const TreasuryIn  = z.enum(['banque', 'caisse', 'sumup', 'helloasso']);
-const TreasuryOut = z.enum(['banque', 'caisse', 'membre']);
+// SumUp / HelloAsso : commissions prélevées directement sur ces comptes.
+const TreasuryOut = z.enum(['banque', 'caisse', 'membre', 'sumup', 'helloasso']);
 const TreasuryAny = z.enum(['banque', 'caisse', 'sumup', 'helloasso']);
 // Un virement « vers membre » rembourse une avance (solde le compte 467).
 const TransferTo  = z.enum(['banque', 'caisse', 'sumup', 'helloasso', 'membre']);
@@ -338,7 +341,9 @@ export async function listOperations({ from, to, q, treasury, category, status =
     where.push(`EXISTS (SELECT 1 FROM entry_line t WHERE t.entry_id = e.id AND t.account_code = ?)`);
     params.push(TREASURY_ACCOUNTS[treasury]);
   }
-  if (category) {
+  if (category === 'remboursement_membre') {
+    where.push(`e.kind = 'virement' AND EXISTS (SELECT 1 FROM entry_line c WHERE c.entry_id = e.id AND c.account_code = '467' AND c.debit > 0)`);
+  } else if (category) {
     where.push(`EXISTS (SELECT 1 FROM entry_line c WHERE c.entry_id = e.id AND c.category_id = ?)`);
     params.push(category);
   }
@@ -620,7 +625,19 @@ export const LotInput = z.object({
     ref:         z.string().regex(/^[a-z0-9][a-z0-9._-]{2,99}$/, 'Référence invalide'),
     operation:   OperationInput,
     attachments: z.array(LotAttachment).max(10).default([]),
-  }).strict()).min(1).max(500),
+  }).strict()).max(500).default([]),
+  members: z.array(z.object({
+    ref:    z.string().regex(/^[a-z0-9][a-z0-9._-]{2,99}$/, 'Référence invalide'),
+    member: MemberInput,
+  }).strict()).max(1000).default([]),
+  events: z.array(z.object({
+    ref:        z.string().regex(/^[a-z0-9][a-z0-9._-]{2,99}$/, 'Référence invalide'),
+    event:      EventInput,
+    operations: z.array(z.object({
+      ref:    z.string().max(100),
+      amount: z.number().int().min(1).nullish(),
+    }).strict()).max(200).default([]),
+  }).strict()).max(100).default([]),
 }).strict();
 
 /**
@@ -631,9 +648,14 @@ export const LotInput = z.object({
 export async function importLot(conn, lot, actor, { dryRun = false, req = null } = {}) {
   const refs = lot.operations.map(o => `lot:${o.ref}`);
   if (new Set(refs).size !== refs.length) throw new HttpError(400, 'Références en double dans le lot');
+  if (!lot.operations.length && !lot.members.length && !lot.events.length) throw new HttpError(400, 'Lot vide');
 
-  const [existing] = await conn.query('SELECT import_ref FROM entry WHERE import_ref IN (?)', [refs]);
-  const already = new Set(existing.map(e => e.import_ref));
+  const existingRefs = async (table, list) => {
+    if (!list.length) return new Set();
+    const [rows] = await conn.query(`SELECT import_ref FROM ${table} WHERE import_ref IN (?)`, [list]);
+    return new Set(rows.map(r => r.import_ref));
+  };
+  const already = await existingRefs('entry', refs);
   const categories = await loadCategories(conn);
 
   const report = [];
@@ -650,8 +672,26 @@ export async function importLot(conn, lot, actor, { dryRun = false, req = null }
       status: already.has(importRef) ? 'deja_importee' : 'a_importer',
     });
   }
-  if (dryRun) return { dry_run: true, operations: report };
 
+  const memberRefs = await existingRefs('member', lot.members.map(m => `lot:${m.ref}`));
+  const members = lot.members.map(m => ({
+    ref: m.ref, name: `${m.member.first_name} ${m.member.last_name}`,
+    status: memberRefs.has(`lot:${m.ref}`) ? 'deja_importee' : 'a_importer',
+  }));
+
+  const eventRefs = await existingRefs('event', lot.events.map(e => `lot:${e.ref}`));
+  const lotOps = new Set(lot.operations.map(o => o.ref));
+  const events = lot.events.map(e => {
+    for (const o of e.operations) {
+      if (!lotOps.has(o.ref)) throw new HttpError(400, `Événement « ${e.event.name} » : opération inconnue ${o.ref}`);
+    }
+    return { ref: e.ref, name: e.event.name, date: e.event.date, operations: e.operations.length,
+      status: eventRefs.has(`lot:${e.ref}`) ? 'deja_importee' : 'a_importer' };
+  });
+
+  if (dryRun) return { dry_run: true, operations: report, members, events };
+
+  const entryIdByRef = new Map();
   for (const item of lot.operations) {
     const importRef = `lot:${item.ref}`;
     const row = report.find(r => r.ref === item.ref);
@@ -660,12 +700,41 @@ export async function importLot(conn, lot, actor, { dryRun = false, req = null }
     for (const a of item.attachments) {
       await addAttachment(conn, id, { filename: a.filename, buffer: Buffer.from(a.data, 'base64'), declaredMime: a.mime }, actor, req);
     }
+    entryIdByRef.set(item.ref, id);
     row.status = 'importee';
     row.number = number;
   }
+
+  for (const [i, m] of lot.members.entries()) {
+    if (members[i].status === 'deja_importee') continue;
+    await createMember(conn, m.member, actor, { importRef: `lot:${m.ref}`, req });
+    members[i].status = 'importee';
+  }
+
+  for (const [i, e] of lot.events.entries()) {
+    if (events[i].status === 'deja_importee') continue;
+    const eventId = await createEvent(conn, e.event, actor, { importRef: `lot:${e.ref}`, req });
+    for (const o of e.operations) {
+      let entryId = entryIdByRef.get(o.ref);
+      if (!entryId) {
+        const [rows] = await conn.execute(
+          `SELECT e2.id FROM entry e1 JOIN entry e2 ON e2.origin_id = e1.origin_id AND e2.status = 'active'
+            WHERE e1.import_ref = ?`, [`lot:${o.ref}`]);
+        entryId = rows[0]?.id;
+      }
+      if (entryId) await linkEntry(conn, eventId, { entry_id: entryId, amount: o.amount ?? null }, actor, req);
+    }
+    events[i].status = 'importee';
+  }
+
   await audit(conn, req, 'compta.import', {
     targetType: 'lot', targetId: lot.label, actor,
-    details: { imported: report.filter(r => r.status === 'importee').length, skipped: report.filter(r => r.status === 'deja_importee').length },
+    details: {
+      imported: report.filter(r => r.status === 'importee').length,
+      skipped: report.filter(r => r.status === 'deja_importee').length,
+      members: members.filter(m => m.status === 'importee').length,
+      events: events.filter(e => e.status === 'importee').length,
+    },
   });
-  return { dry_run: false, operations: report };
+  return { dry_run: false, operations: report, members, events };
 }

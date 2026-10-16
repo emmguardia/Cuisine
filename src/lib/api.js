@@ -70,6 +70,23 @@ export const api = {
     attachmentUrl: (id, download = false) => `${BASE}/admin/compta/attachments/${id}${download ? '?download=1' : ''}`,
   },
 
+  membres: {
+    list:   (params = {}) => req(`/admin/membres?${new URLSearchParams(params)}`),
+    create: (data)        => req('/admin/membres',       { method: 'POST',   body: data }),
+    update: (id, data)    => req(`/admin/membres/${id}`, { method: 'PUT',    body: data }),
+    remove: (id)          => req(`/admin/membres/${id}`, { method: 'DELETE' }),
+  },
+
+  evenements: {
+    list:   ()                 => req('/admin/evenements'),
+    get:    (id)               => req(`/admin/evenements/${id}`),
+    create: (data)             => req('/admin/evenements',       { method: 'POST',   body: data }),
+    update: (id, data)         => req(`/admin/evenements/${id}`, { method: 'PUT',    body: data }),
+    remove: (id)               => req(`/admin/evenements/${id}`, { method: 'DELETE' }),
+    link:   (id, entryId, amount) => req(`/admin/evenements/${id}/operations`, { method: 'POST', body: { entry_id: entryId, amount: amount ?? null } }),
+    unlink: (id, originId)     => req(`/admin/evenements/${id}/operations/${originId}`, { method: 'DELETE' }),
+  },
+
   team: {
     list:   ()         => req('/team'),
     create: (data)     => req('/team',      { method: 'POST',   body: data }),
