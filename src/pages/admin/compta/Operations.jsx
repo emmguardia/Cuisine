@@ -41,7 +41,7 @@ export default function Operations() {
   const [summary, setSummary] = useState(null);
   const [ops, setOps] = useState(null);
   const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({ q: '', treasury: '', from: '', to: '' });
+  const [filters, setFilters] = useState({ q: '', treasury: '', category: '', from: '', to: '' });
 
   useEffect(() => {
     api.compta.summary().then(setSummary).catch(err => setError(err.message));
@@ -83,6 +83,17 @@ export default function Operations() {
           <option value="sumup">SumUp</option>
           <option value="helloasso">HelloAsso</option>
           <option value="membre">Avance membre</option>
+        </select>
+        <label className="sr-only" htmlFor="f-c">Catégorie</label>
+        <select id="f-c" value={filters.category} onChange={e => set({ category: e.target.value })} className={`${input} md:w-60`}>
+          <option value="">Toutes les catégories</option>
+          <optgroup label="Rentrées">
+            {meta?.categories.filter(c => c.direction === 'recette').map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </optgroup>
+          <optgroup label="Sorties">
+            {meta?.categories.filter(c => c.direction === 'depense').map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            <option value="remboursement_membre">Remboursement de membre</option>
+          </optgroup>
         </select>
         <div className="flex gap-2 items-center">
           <label className="sr-only" htmlFor="f-from">Du</label>

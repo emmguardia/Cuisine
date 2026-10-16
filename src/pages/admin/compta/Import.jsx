@@ -63,7 +63,10 @@ export default function Import() {
   };
 
   const rows = result?.operations ?? preview?.operations ?? [];
-  const todo = preview?.operations.filter(o => o.status === 'a_importer') ?? [];
+  const extras = result ?? preview;
+  const todo = [
+    ...(preview?.operations ?? []), ...(preview?.members ?? []), ...(preview?.events ?? []),
+  ].filter(o => o.status === 'a_importer');
 
   return (
     <div className="space-y-6">
@@ -96,8 +99,10 @@ export default function Import() {
 
       {result && (
         <Notice tone="success">
-          {result.operations.filter(o => o.status === 'importee').length} opération(s) importée(s),{' '}
-          {result.operations.filter(o => o.status === 'deja_importee').length} déjà présente(s).
+          {result.operations.filter(o => o.status === 'importee').length} opération(s),{' '}
+          {(result.members ?? []).filter(o => o.status === 'importee').length} adhérent(s) et{' '}
+          {(result.events ?? []).filter(o => o.status === 'importee').length} événement(s) importés ;{' '}
+          {[...result.operations, ...(result.members ?? []), ...(result.events ?? [])].filter(o => o.status === 'deja_importee').length} élément(s) déjà présent(s).
         </Notice>
       )}
 
@@ -133,10 +138,41 @@ export default function Import() {
         </div>
       )}
 
+      {extras && (extras.members?.length > 0 || extras.events?.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {extras.members?.length > 0 && (
+            <div className="bg-white rounded-2xl border border-warm-100 p-4">
+              <h2 className="font-nunito font-semibold text-warm-900 mb-2">Adhérents ({extras.members.length})</h2>
+              <ul className="text-sm font-nunito space-y-1 max-h-60 overflow-y-auto">
+                {extras.members.map(m => (
+                  <li key={m.ref} className="flex justify-between gap-3">
+                    <span className="text-warm-800">{m.name}</span>
+                    <span className={`font-semibold ${STATUS[m.status]?.cls}`}>{STATUS[m.status]?.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {extras.events?.length > 0 && (
+            <div className="bg-white rounded-2xl border border-warm-100 p-4">
+              <h2 className="font-nunito font-semibold text-warm-900 mb-2">Événements ({extras.events.length})</h2>
+              <ul className="text-sm font-nunito space-y-1">
+                {extras.events.map(e => (
+                  <li key={e.ref} className="flex justify-between gap-3">
+                    <span className="text-warm-800">{frDate(e.date)} · {e.name} ({e.operations} opérations)</span>
+                    <span className={`font-semibold ${STATUS[e.status]?.cls}`}>{STATUS[e.status]?.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       {preview && (
         <div className="flex flex-wrap items-center gap-4">
           <button onClick={run} disabled={busy || todo.length === 0} className={btn.primary}>
-            {busy ? 'Import…' : todo.length ? `Importer ${todo.length} opération${todo.length > 1 ? 's' : ''}` : 'Rien de nouveau à importer'}
+            {busy ? 'Import…' : todo.length ? `Importer ${todo.length} élément${todo.length > 1 ? 's' : ''}` : 'Rien de nouveau à importer'}
           </button>
           <p className="font-nunito text-sm text-warm-500">Une connexion de moins de 10 minutes est demandée pour l'import.</p>
         </div>

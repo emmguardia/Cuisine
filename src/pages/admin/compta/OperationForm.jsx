@@ -7,7 +7,7 @@ import { useComptaMeta, FilePicker, prepareFile, categoryLabel, treasuryText } f
 
 const TREASURIES = {
   recette:  ['banque', 'caisse', 'sumup', 'helloasso'],
-  depense:  ['banque', 'caisse', 'membre'],
+  depense:  ['banque', 'caisse', 'membre', 'sumup', 'helloasso'],
   virement: ['banque', 'caisse', 'sumup', 'helloasso'],
 };
 
@@ -218,7 +218,7 @@ export default function OperationForm({ mode = 'create', initial = null, operati
                 <div key={i} className="grid grid-cols-12 gap-2 items-start">
                   <select aria-label={`Catégorie ligne ${i + 1}`} value={l.category} onChange={e => setLine(i, { category: e.target.value })}
                     required className={`${input} col-span-12 sm:col-span-5`}>
-                    <option value="">Catégorie…</option>
+                    <option value="">{f.kind === 'recette' ? 'Type de rentrée…' : 'Type de sortie…'}</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                   </select>
                   <input aria-label={`Détail ligne ${i + 1}`} value={l.label} maxLength={255} onChange={e => setLine(i, { label: e.target.value })}

@@ -10,6 +10,8 @@ import auditRouter    from './routes/audit.js';
 import uploadRouter   from './routes/upload.js';
 import teamRouter     from './routes/team.js';
 import comptaRouter   from './routes/compta.js';
+import membersRouter  from './routes/members.js';
+import eventsRouter   from './routes/events.js';
 
 /**
  * Table de montage des routes métier. Exportée pour le test d'autorisation,
@@ -21,6 +23,8 @@ export const ROUTES = [
   { path: '/api/admin/requests', router: requestsRouter },
   { path: '/api/admin/audit',    router: auditRouter },
   { path: '/api/admin/compta',   router: comptaRouter },
+  { path: '/api/admin/membres',  router: membersRouter },
+  { path: '/api/admin/evenements', router: eventsRouter },
   { path: '/api/admin',          router: adminRouter },
   { path: '/api/upload',         router: uploadRouter },
   { path: '/api/team',           router: teamRouter },
