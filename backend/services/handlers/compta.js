@@ -28,7 +28,9 @@ function summarize(op, labels) {
     montant: formatEuros(totalOf(op)),
   };
   if (op.kind === 'virement') {
-    s.moyen = `${TREASURY_LABELS[op.from]} → ${TREASURY_LABELS[op.to]}`;
+    s.moyen = op.to === 'membre'
+      ? `${TREASURY_LABELS[op.from]} → remboursement de ${op.third_party}`
+      : `${TREASURY_LABELS[op.from]} → ${TREASURY_LABELS[op.to]}`;
   } else {
     s.moyen = TREASURY_LABELS[op.treasury];
     s.ventilation = op.lines

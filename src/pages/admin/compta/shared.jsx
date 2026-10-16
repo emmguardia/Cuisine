@@ -25,6 +25,9 @@ export const TREASURY_SHORT = {
 };
 
 export function treasuryText(op) {
+  if (op.kind === 'virement' && op.to === 'membre') {
+    return `${TREASURY_SHORT[op.from] ?? '?'} → remboursement${op.third_party ? ` ${op.third_party}` : ' membre'}`;
+  }
   if (op.kind === 'virement') return `${TREASURY_SHORT[op.from] ?? '?'} → ${TREASURY_SHORT[op.to] ?? '?'}`;
   return TREASURY_SHORT[op.treasury] ?? '';
 }

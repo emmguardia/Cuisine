@@ -56,17 +56,22 @@ const common = {
 const TreasuryIn  = z.enum(['banque', 'caisse', 'sumup', 'helloasso']);
 const TreasuryOut = z.enum(['banque', 'caisse', 'membre']);
 const TreasuryAny = z.enum(['banque', 'caisse', 'sumup', 'helloasso']);
+// Un virement « vers membre » rembourse une avance (solde le compte 467).
+const TransferTo  = z.enum(['banque', 'caisse', 'sumup', 'helloasso', 'membre']);
 
 export const OperationInput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('recette'), ...common, treasury: TreasuryIn,  lines: z.array(Line).min(1).max(20) }).strict(),
   z.object({ kind: z.literal('depense'), ...common, treasury: TreasuryOut, lines: z.array(Line).min(1).max(20) }).strict(),
-  z.object({ kind: z.literal('virement'), ...common, from: TreasuryAny, to: TreasuryAny, amount: Cents }).strict(),
+  z.object({ kind: z.literal('virement'), ...common, from: TreasuryAny, to: TransferTo, amount: Cents }).strict(),
 ]).superRefine((op, ctx) => {
   if (op.kind === 'virement' && op.from === op.to) {
     ctx.addIssue({ code: 'custom', path: ['to'], message: 'Source et destination identiques' });
   }
   if (op.kind === 'depense' && op.treasury === 'membre' && !op.third_party) {
     ctx.addIssue({ code: 'custom', path: ['third_party'], message: 'Indiquez le membre à rembourser' });
+  }
+  if (op.kind === 'virement' && op.to === 'membre' && !op.third_party) {
+    ctx.addIssue({ code: 'custom', path: ['third_party'], message: 'Indiquez le membre remboursé' });
   }
 });
 
@@ -401,6 +406,13 @@ export async function getSummary() {
     };
   }
 
+  const [debts] = await pool.execute(
+    `SELECT e.third_party AS membre, SUM(CAST(l.credit AS SIGNED) - CAST(l.debit AS SIGNED)) AS du
+       FROM entry_line l JOIN entry e ON e.id = l.entry_id
+      WHERE l.account_code = '467'
+      GROUP BY e.third_party HAVING du <> 0 ORDER BY du DESC`
+  );
+
   const [[missing]] = await pool.execute(
     `SELECT COUNT(*) AS n FROM entry e
       WHERE e.status = 'active' AND e.kind = 'depense'
@@ -413,7 +425,8 @@ export async function getSummary() {
       banque: bal['512'] ?? 0, caisse: bal['530'] ?? 0,
       sumup: bal['5112'] ?? 0, helloasso: bal['5113'] ?? 0,
     },
-    membres_a_rembourser: -(bal['467'] ?? 0),
+    membres_a_rembourser: 0 - (bal['467'] ?? 0),
+    remboursements: debts.map(d => ({ membre: d.membre, montant: Number(d.du) })),
     exercice: result,
     sans_justificatif: Number(missing.n),
     derniere_operation_banque: last.d ? dateOnly(last.d) : null,
