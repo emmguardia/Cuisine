@@ -1,21 +1,31 @@
 /**
  * Routes admin — réservées au rôle "admin"
  * GET    /api/admin/recipes      → toutes les recettes
- * GET    /api/admin/users        → tous les membres inscrits
- * PATCH  /api/admin/users/:id   → changer le rôle
- * DELETE /api/admin/users/:id   → supprimer un compte
+ * GET    /api/admin/users        → tous les comptes inscrits
+ * DELETE /api/admin/users/:id   → supprimer un compte membre
  * GET    /api/admin/emails       → whitelist emails
- * POST   /api/admin/emails       → ajouter un email
- * PATCH  /api/admin/emails/:id  → changer le rôle d'un email
- * DELETE /api/admin/emails/:id  → retirer un email
+ * POST   /api/admin/emails       → ajouter un email membre
+ * DELETE /api/admin/emails/:id  → retirer un email membre
+ *
+ * Tout ce qui touche aux droits d'administration (changer un rôle, ajouter ou
+ * retirer un admin, supprimer un compte admin) passe par une demande à double
+ * validation : POST /api/admin/requests (routes/requests.js). Les routes
+ * ci-dessous renvoient 409 REQUEST_REQUIRED dans ces cas.
  */
 import { Router } from 'express';
-import { getPool } from '../config/database.js';
+import { z } from 'zod';
+import { getPool, withTransaction } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { adminUserLimiter } from '../config/security.js';
+import { validate } from '../middleware/validate.js';
 import { deleteFromR2 } from '../config/r2.js';
+import { audit } from '../lib/audit.js';
+import { HttpError } from '../lib/errors.js';
 
 const router = Router();
-router.use(requireAdmin); // toutes les routes ici = admin only
+router.use(requireAdmin, adminUserLimiter); // toutes les routes ici = admin only
+
+const requestRequired = (message) => new HttpError(409, message, undefined, 'REQUEST_REQUIRED');
 
 /* ── Recettes ──────────────────────────────────────────────────────── */
 router.get('/recipes', async (_req, res) => {
@@ -30,7 +40,7 @@ router.get('/recipes', async (_req, res) => {
   res.json({ recipes: rows.map(r => ({ ...r, tags: JSON.parse(r.tags || '[]') })) });
 });
 
-/* ── Membres inscrits ───────────────────────────────────────────────── */
+/* ── Comptes inscrits ───────────────────────────────────────────────── */
 router.get('/users', async (_req, res) => {
   const [rows] = await getPool().execute(`
     SELECT id, name, email, role, image, createdAt
@@ -40,48 +50,35 @@ router.get('/users', async (_req, res) => {
   res.json({ users: rows });
 });
 
-router.patch('/users/:id', async (req, res) => {
-  const { role } = req.body;
-  if (!['admin', 'membre'].includes(role)) {
-    return res.status(400).json({ error: 'Rôle invalide' });
-  }
-  if (req.params.id === req.user.id) {
-    return res.status(400).json({ error: 'Vous ne pouvez pas modifier votre propre rôle' });
-  }
+router.delete('/users/:id',
+  validate({ params: z.object({ id: z.string().min(1).max(36) }) }),
+  async (req, res) => {
+    const { id } = req.valid.params;
+    if (id === req.user.id) {
+      throw new HttpError(400, 'Vous ne pouvez pas supprimer votre propre compte');
+    }
 
-  const pool = getPool();
-  const [rows] = await pool.execute('SELECT id FROM `user` WHERE id = ?', [req.params.id]);
-  if (!rows.length) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    const images = await withTransaction(async (conn) => {
+      const [rows] = await conn.execute(
+        'SELECT id, name, email, role FROM `user` WHERE id = ? FOR UPDATE', [id]
+      );
+      if (!rows.length) throw new HttpError(404, 'Utilisateur introuvable');
+      if (rows[0].role === 'admin') {
+        throw requestRequired('Supprimer un compte administrateur demande la validation d\'un autre membre du bureau');
+      }
 
-  await pool.execute(
-    'UPDATE `user` SET role = ?, updatedAt = NOW(3) WHERE id = ?',
-    [role, req.params.id]
-  );
-  res.json({ message: 'Rôle mis à jour' });
-});
+      // Images des recettes de l'utilisateur (supprimées en cascade par la DB) → nettoyage R2
+      const [recipeRows] = await conn.execute('SELECT image_url FROM recipe WHERE author_id = ?', [id]);
+      await conn.execute('DELETE FROM `user` WHERE id = ?', [id]);
+      await audit(conn, req, 'user.delete', {
+        targetType: 'user', targetId: id, details: { name: rows[0].name, email: rows[0].email },
+      });
+      return recipeRows.map(r => r.image_url).filter(Boolean);
+    });
 
-router.delete('/users/:id', async (req, res) => {
-  if (req.params.id === req.user.id) {
-    return res.status(400).json({ error: 'Vous ne pouvez pas supprimer votre propre compte' });
-  }
-
-  const pool = getPool();
-  const [rows] = await pool.execute('SELECT id FROM `user` WHERE id = ?', [req.params.id]);
-  if (!rows.length) return res.status(404).json({ error: 'Utilisateur introuvable' });
-
-  // Images des recettes de l'utilisateur (supprimées en cascade par la DB) → nettoyage R2
-  const [recipeRows] = await pool.execute(
-    'SELECT image_url FROM recipe WHERE author_id = ?', [req.params.id]
-  );
-
-  await pool.execute('DELETE FROM `user` WHERE id = ?', [req.params.id]);
-
-  for (const r of recipeRows) {
-    if (r.image_url) await deleteFromR2(r.image_url);
-  }
-
-  res.json({ message: 'Utilisateur supprimé' });
-});
+    for (const url of images) await deleteFromR2(url);
+    res.json({ message: 'Utilisateur supprimé' });
+  });
 
 /* ── Whitelist emails ───────────────────────────────────────────────── */
 router.get('/emails', async (_req, res) => {
@@ -91,63 +88,67 @@ router.get('/emails', async (_req, res) => {
   res.json({ emails: rows });
 });
 
-router.post('/emails', async (req, res) => {
-  const { email, role } = req.body;
-  if (!email?.trim() || !['admin', 'membre'].includes(role)) {
-    return res.status(400).json({ error: 'Email et rôle valides requis' });
-  }
-
-  const pool = getPool();
-  try {
-    await pool.execute(
-      'INSERT INTO allowed_email (email, role, created_at) VALUES (?, ?, NOW(3))',
-      [email.toLowerCase().trim(), role]
-    );
-    const [rows] = await pool.execute(
-      'SELECT id, email, role, created_at FROM allowed_email WHERE email = ?',
-      [email.toLowerCase().trim()]
-    );
-    res.status(201).json(rows[0]);
-  } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ error: 'Cet email est déjà dans la liste' });
+router.post('/emails',
+  validate({
+    body: z.object({
+      email: z.string().trim().toLowerCase().pipe(z.email('Email invalide').max(255)),
+      role:  z.enum(['admin', 'membre']),
+    }).strict(),
+  }),
+  async (req, res) => {
+    const { email, role } = req.valid.body;
+    if (role === 'admin') {
+      throw requestRequired('Ajouter un administrateur demande la validation d\'un autre membre du bureau');
     }
-    throw err;
-  }
-});
 
-router.patch('/emails/:id', async (req, res) => {
-  const { role } = req.body;
-  if (!['admin', 'membre'].includes(role)) {
-    return res.status(400).json({ error: 'Rôle invalide' });
-  }
+    const created = await withTransaction(async (conn) => {
+      try {
+        await conn.execute(
+          'INSERT INTO allowed_email (email, role, created_at) VALUES (?, ?, NOW(3))', [email, role]
+        );
+      } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') throw new HttpError(409, 'Cet email est déjà dans la liste');
+        throw err;
+      }
+      const [rows] = await conn.execute(
+        'SELECT id, email, role, created_at FROM allowed_email WHERE email = ?', [email]
+      );
+      await audit(conn, req, 'allowed_email.add', {
+        targetType: 'allowed_email', targetId: rows[0].id, details: { email, role },
+      });
+      return rows[0];
+    });
+    res.status(201).json(created);
+  });
 
-  const pool = getPool();
-  const [rows] = await pool.execute(
-    'SELECT email FROM allowed_email WHERE id = ?', [req.params.id]
-  );
-  if (!rows.length) return res.status(404).json({ error: 'Email introuvable' });
+router.delete('/emails/:id',
+  validate({ params: z.object({ id: z.coerce.number().int().positive() }) }),
+  async (req, res) => {
+    const { id } = req.valid.params;
+    await withTransaction(async (conn) => {
+      const [rows] = await conn.execute(
+        'SELECT email, role FROM allowed_email WHERE id = ? FOR UPDATE', [id]
+      );
+      if (!rows.length) throw new HttpError(404, 'Email introuvable');
+      const { email, role } = rows[0];
 
-  await pool.execute(
-    'UPDATE allowed_email SET role = ? WHERE id = ?',
-    [role, req.params.id]
-  );
-  res.json({ message: 'Rôle mis à jour' });
-});
+      if (email.toLowerCase() === req.user.email.toLowerCase()) {
+        throw new HttpError(400, 'Vous ne pouvez pas retirer votre propre email');
+      }
+      if (role === 'admin') {
+        throw requestRequired('Retirer un administrateur demande la validation d\'un autre membre du bureau');
+      }
 
-router.delete('/emails/:id', async (req, res) => {
-  const pool = getPool();
-  const [rows] = await pool.execute(
-    'SELECT email FROM allowed_email WHERE id = ?', [req.params.id]
-  );
-  if (!rows.length) return res.status(404).json({ error: 'Email introuvable' });
-
-  if (rows[0].email.toLowerCase() === req.user.email.toLowerCase()) {
-    return res.status(400).json({ error: 'Vous ne pouvez pas retirer votre propre email' });
-  }
-
-  await pool.execute('DELETE FROM allowed_email WHERE id = ?', [req.params.id]);
-  res.json({ message: 'Email retiré' });
-});
+      await conn.execute('DELETE FROM allowed_email WHERE id = ?', [id]);
+      // Sans ça, la personne garderait sa session ouverte jusqu'à expiration.
+      await conn.execute(
+        'DELETE s FROM session s JOIN `user` u ON u.id = s.userId WHERE u.email = ?', [email]
+      );
+      await audit(conn, req, 'allowed_email.delete', {
+        targetType: 'allowed_email', targetId: id, details: { email, role },
+      });
+    });
+    res.json({ message: 'Email retiré' });
+  });
 
 export default router;

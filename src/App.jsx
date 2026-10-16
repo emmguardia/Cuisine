@@ -34,7 +34,7 @@ function App() {
   else if (path === '/contact')          Page = Contact;
   else if (path === '/mentions-legales') Page = MentionsLegales;
   else if (path === '/dashboard')        Page = Dashboard;
-  else if (path === '/admin')            Page = Admin;
+  else if (path === '/admin' || path.startsWith('/admin/')) Page = Admin;
   else                                   Page = Home;
 
   return (

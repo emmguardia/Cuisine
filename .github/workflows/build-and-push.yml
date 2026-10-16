@@ -96,6 +96,21 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+    # MariaDB jetable pour les tests d'intégration (migrations, double
+    # validation, triggers). Même version majeure que le Galera de prod.
+    services:
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root
+          MARIADB_DATABASE: quisine_test
+          MARIADB_USER: quisine_user
+          MARIADB_PASSWORD: ci-test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -110,11 +125,15 @@ jobs:
         working-directory: backend
       - run: pnpm audit --prod --audit-level high
         working-directory: backend
-      # ATTENTION : le script `test` est `node --test` mais aucun fichier de
-      # test n'existe dans le dépôt. Cette étape ne vérifie donc rien pour
-      # l'instant.
-      - run: pnpm run --if-present test
+      # Tests d'autorisation de toutes les routes + intégration MariaDB.
+      - run: pnpm test
         working-directory: backend
+        env:
+          TEST_DB_HOST: 127.0.0.1
+          TEST_DB_PORT: '3306'
+          TEST_DB_USER: quisine_user
+          TEST_DB_PASSWORD: ci-test
+          TEST_DB_NAME: quisine_test
 
   # ── Build & push ─────────────────────────────────────────────────
   build-and-push:
