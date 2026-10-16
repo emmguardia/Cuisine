@@ -37,6 +37,7 @@ function toPayload(f) {
     const amount = parseEuros(f.amount);
     if (!amount || amount <= 0) return { error: 'Montant invalide.' };
     if (f.from === f.to) return { error: 'Source et destination identiques.' };
+    if (f.to === 'membre' && !base.third_party) return { error: 'Indiquez le membre remboursé.' };
     return { op: { ...base, from: f.from, to: f.to, amount } };
   }
   const lines = [];
@@ -174,6 +175,7 @@ export default function OperationForm({ mode = 'create', initial = null, operati
               {label('Vers', 'op-to')}
               <select id="op-to" value={f.to} onChange={e => set({ to: e.target.value })} className={input}>
                 {TREASURIES.virement.map(t => <option key={t} value={t}>{meta.treasuries[t]}</option>)}
+                <option value="membre">Remboursement d'un membre</option>
               </select>
             </div>
             <div>
@@ -182,7 +184,17 @@ export default function OperationForm({ mode = 'create', initial = null, operati
                 placeholder="0,00" className={`${input} text-right tabular-nums`} />
             </div>
           </div>
-        ) : (
+        ) : null}
+
+        {f.kind === 'virement' && f.to === 'membre' && (
+          <div className="max-w-sm">
+            {label('Membre remboursé', 'op-member')}
+            <input id="op-member" required maxLength={255} value={f.third_party}
+              onChange={e => set({ third_party: e.target.value })} className={input} />
+          </div>
+        )}
+
+        {f.kind !== 'virement' && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>

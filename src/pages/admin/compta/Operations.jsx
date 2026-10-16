@@ -25,7 +25,11 @@ export function ComptaSummary({ summary }) {
         <>
           {t.sumup !== 0 && <SummaryCard label="SumUp en attente" value={formatEuros(t.sumup)} />}
           {t.helloasso !== 0 && <SummaryCard label="HelloAsso en attente" value={formatEuros(t.helloasso)} />}
-          {summary.membres_a_rembourser !== 0 && <SummaryCard label="À rembourser aux membres" value={formatEuros(summary.membres_a_rembourser)} />}
+          {summary.membres_a_rembourser !== 0 && (
+            <SummaryCard label="À rembourser aux membres" value={formatEuros(summary.membres_a_rembourser)}
+              tone="negative"
+              hint={summary.remboursements.map(r => `${r.membre ?? 'Membre'} : ${formatEuros(r.montant)}`).join(', ')} />
+          )}
         </>
       )}
     </div>
@@ -67,10 +71,10 @@ export default function Operations() {
       {error && <Notice tone="error">{error}</Notice>}
       <ComptaSummary summary={summary} />
 
-      <div className="flex flex-col md:flex-row gap-3">
+      <div className="flex flex-col md:flex-row md:flex-wrap gap-3">
         <label className="sr-only" htmlFor="f-q">Rechercher</label>
         <input id="f-q" type="search" placeholder="Rechercher un libellé, un fournisseur, un numéro" value={filters.q}
-          onChange={e => set({ q: e.target.value })} className={`${input} md:flex-1`} />
+          onChange={e => set({ q: e.target.value })} className={`${input} md:flex-1 md:min-w-[16rem]`} />
         <label className="sr-only" htmlFor="f-t">Moyen</label>
         <select id="f-t" value={filters.treasury} onChange={e => set({ treasury: e.target.value })} className={`${input} md:w-48`}>
           <option value="">Tous les moyens</option>
@@ -92,7 +96,7 @@ export default function Operations() {
       {!ops || !meta ? <TableSkeleton cols={5} /> : ops.length === 0 ? (
         <Empty message="Aucune opération pour ces critères." />
       ) : (
-        <div className="bg-white rounded-2xl border border-warm-100 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-warm-100 overflow-x-auto">
           <table className="w-full text-left text-sm font-nunito">
             <thead className="hidden md:table-header-group">
               <tr className="border-b border-warm-100 text-xs uppercase tracking-wide text-warm-500">

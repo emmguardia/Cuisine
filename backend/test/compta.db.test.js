@@ -191,6 +191,30 @@ describe('compta (base réelle)', { skip: !dbEnabled && 'TEST_DB_HOST non défin
     await assert.rejects(tx(c => compta.importLot(c, bad, A)), { status: 415 });
   });
 
+  test('avance d\'un membre puis remboursement', async () => {
+    const avance = compta.OperationInput.parse({
+      kind: 'depense', date: '2026-10-09', label: 'Courses Lidl', treasury: 'membre', third_party: 'Damien',
+      lines: [{ category: 'ingredients', amount: 498 }],
+    });
+    await tx(c => compta.createEntry(c, avance, A));
+    let s = await compta.getSummary();
+    assert.equal(s.membres_a_rembourser, 498);
+    assert.deepEqual(s.remboursements, [{ membre: 'Damien', montant: 498 }]);
+
+    assert.throws(() => compta.OperationInput.parse({
+      kind: 'virement', date: '2026-10-20', label: 'Remboursement', from: 'banque', to: 'membre', amount: 498,
+    }));
+    const rembourse = compta.OperationInput.parse({
+      kind: 'virement', date: '2026-10-20', label: 'Remboursement Damien', from: 'banque', to: 'membre',
+      third_party: 'Damien', amount: 498,
+    });
+    const { number } = await tx(c => compta.createEntry(c, rembourse, A));
+    assert.match(number, /^BQ-/);
+    s = await compta.getSummary();
+    assert.equal(s.membres_a_rembourser, 0);
+    assert.deepEqual(s.remboursements, []);
+  });
+
   test('résumé : soldes et résultat de l\'exercice', async () => {
     const s = await compta.getSummary();
     assert.equal(s.tresorerie.banque, await balance('512'));
