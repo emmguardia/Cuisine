@@ -4,6 +4,8 @@ import { onLinkClick } from '../../lib/router';
 import { PageTitle, Notice, formatDateTime } from './ui';
 import { ACTION_LABELS, describeEntry } from './Audit';
 import { ComptaSummary } from './compta/Operations';
+import { SummaryCard } from './compta/shared';
+import { frDate } from './compta/money';
 
 function Stat({ label, value, href, hint }) {
   return (
@@ -19,10 +21,12 @@ function Stat({ label, value, href, hint }) {
 export default function Overview({ summary }) {
   const [activity, setActivity] = useState(null);
   const [compta, setCompta] = useState(null);
+  const [materiel, setMateriel] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     api.compta.summary().then(setCompta).catch(err => setError(err.message));
+    api.materiel.list({ status: 'actif' }).then(d => setMateriel(d.summary)).catch(() => {});
     api.audit.list({ limit: 8 })
       .then(d => setActivity(d.entries || []))
       .catch(err => setError(err.message));
@@ -40,6 +44,24 @@ export default function Overview({ summary }) {
               className="font-nunito text-sm font-semibold text-orange-700 hover:underline">Comptabilité</a>
           </div>
           <ComptaSummary summary={compta} />
+        </section>
+      )}
+
+      {materiel && (
+        <section className="mb-8">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="font-nunito font-semibold text-warm-900">Matériel</h2>
+            <a href="/admin/materiel" onClick={(e) => onLinkClick(e, '/admin/materiel')}
+              className="font-nunito text-sm font-semibold text-orange-700 hover:underline">Matériel</a>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <SummaryCard label="Objets" value={materiel.objets} hint={`${materiel.fiches} fiche${materiel.fiches > 1 ? 's' : ''}`} />
+            <SummaryCard label="Hors service" value={materiel.hors_service} tone={materiel.hors_service ? 'negative' : 'default'} />
+            <SummaryCard label="Dernier contrôle" value={materiel.dernier_controle ? frDate(materiel.dernier_controle) : 'Jamais'}
+              hint={materiel.controle_en_cours ? 'Un contrôle est en cours' : null} />
+            <SummaryCard label="Manquants au dernier contrôle" value={materiel.manquants_dernier_controle}
+              tone={materiel.manquants_dernier_controle ? 'negative' : 'default'} />
+          </div>
         </section>
       )}
 

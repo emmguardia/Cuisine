@@ -13,6 +13,7 @@ import comptaRouter   from './routes/compta.js';
 import membersRouter  from './routes/members.js';
 import eventsRouter   from './routes/events.js';
 import integrationsRouter from './routes/integrations.js';
+import equipmentRouter from './routes/equipment.js';
 import webhooksRouter from './routes/webhooks.js';
 
 /**
@@ -28,6 +29,7 @@ export const ROUTES = [
   { path: '/api/admin/membres',  router: membersRouter },
   { path: '/api/admin/evenements', router: eventsRouter },
   { path: '/api/admin/integrations', router: integrationsRouter },
+  { path: '/api/admin/materiel', router: equipmentRouter },
   { path: '/api/admin',          router: adminRouter },
   { path: '/api/upload',         router: uploadRouter },
   { path: '/api/team',           router: teamRouter },

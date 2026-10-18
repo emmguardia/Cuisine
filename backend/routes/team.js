@@ -83,8 +83,11 @@ router.put('/:id', async (req, res) => {
 
   try {
     await getPool().execute(
-      'UPDATE team_member SET name = ?, role = ?, photo_url = ?, member_id = ? WHERE id = ?',
-      [name.trim(), role?.trim() || null, photo_url || null, member_id || null, req.params.id]
+      // member_id absent du corps = lien inchangé (modifier une photo ne délie pas l'adhérent).
+      `UPDATE team_member SET name = ?, role = ?, photo_url = ?${'member_id' in req.body ? ', member_id = ?' : ''} WHERE id = ?`,
+      'member_id' in req.body
+        ? [name.trim(), role?.trim() || null, photo_url || null, member_id || null, req.params.id]
+        : [name.trim(), role?.trim() || null, photo_url || null, req.params.id]
     );
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Cet adhérent fait déjà partie de l\'équipe' });

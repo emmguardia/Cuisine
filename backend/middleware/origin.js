@@ -21,6 +21,8 @@ const EXCLUDED_PREFIXES = ['/api/auth/', '/api/webhooks/'];
 const BINARY_UPLOADS = [
   { path: /^\/api\/admin\/compta\/operations\/[0-9a-f-]{36}\/attachments$/,
     types: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] },
+  { path: /^\/api\/admin\/materiel\/[0-9a-f-]{36}\/photo$/,
+    types: ['image/jpeg', 'image/png', 'image/webp'] },
 ];
 
 export function allowedOrigins() {

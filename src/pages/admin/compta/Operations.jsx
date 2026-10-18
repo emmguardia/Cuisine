@@ -2,36 +2,10 @@ import { useEffect, useState } from 'react';
 import { api } from '../../../lib/api';
 import { navigate, onLinkClick } from '../../../lib/router';
 import { btn, input, Empty, Notice, PageTitle, TableSkeleton } from '../ui';
-import { formatEuros, frDate, parseEuros } from './money';
+import { formatEuros, frDate } from './money';
 import { useComptaMeta, categoryLabel, treasuryText, Amount, SummaryCard } from './shared';
 
-/** Compare le solde affiché par l'appli Crédit Mutuel avec celui de la compta. */
-function BankCheck({ compta }) {
-  const [value, setValue] = useState('');
-  const real = parseEuros(value);
-  const gap = real == null ? null : real - compta;
-  return (
-    <div className="bg-white rounded-2xl border border-warm-100 p-4 col-span-2 lg:col-span-4">
-      <label htmlFor="bank-check" className="font-nunito text-sm font-semibold text-warm-800">
-        Vérifier avec l'appli Crédit Mutuel
-      </label>
-      <div className="flex flex-wrap items-center gap-3 mt-2">
-        <input id="bank-check" inputMode="decimal" placeholder="Solde affiché, ex. 433,49" value={value}
-          onChange={e => setValue(e.target.value)} className={`${input} w-56 text-right tabular-nums`} />
-        {gap === 0 && <span className="font-nunito text-sm font-semibold text-green-800">La compta est juste.</span>}
-        {gap != null && gap !== 0 && (
-          <span className="font-nunito text-sm text-red-700">
-            Écart de <strong>{formatEuros(gap, { sign: true })}</strong> : {gap > 0
-              ? 'une rentrée n\'est pas saisie (virement, versement…) ou une dépense saisie n\'est pas encore passée en banque.'
-              : 'une dépense n\'est pas saisie (paiement carte, frais…) ou une rentrée saisie n\'est pas encore arrivée.'}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export function ComptaSummary({ summary, withBankCheck = false }) {
+export function ComptaSummary({ summary }) {
   if (!summary) return null;
   const t = summary.tresorerie;
   const ex = summary.exercice;
@@ -58,7 +32,6 @@ export function ComptaSummary({ summary, withBankCheck = false }) {
           )}
         </>
       )}
-      {withBankCheck && <BankCheck compta={t.banque} />}
     </div>
   );
 }
@@ -96,7 +69,7 @@ export default function Operations() {
         } />
 
       {error && <Notice tone="error">{error}</Notice>}
-      <ComptaSummary summary={summary} withBankCheck />
+      <ComptaSummary summary={summary} />
 
       <div className="flex flex-col md:flex-row md:flex-wrap gap-3">
         <label className="sr-only" htmlFor="f-q">Rechercher</label>

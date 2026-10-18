@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /* ─── Composants communs de l'espace admin ───────────────────────────── */
 
@@ -84,24 +85,40 @@ export function formatDateTime(value) {
 }
 
 /* ─── Fenêtre modale accessible ──────────────────────────────────────── */
+/**
+ * Fenêtre modale. Rendue dans <body> (portail) : une fenêtre ouverte depuis un
+ * formulaire ne doit jamais se retrouver imbriquée dedans, sinon son bouton
+ * d'envoi soumettrait le formulaire de la page.
+ */
 export function Modal({ title, onClose, children }) {
   const ref = useRef(null);
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    ref.current?.querySelector('textarea, input, select, button')?.focus();
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
-  return (
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') closeRef.current(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Focus sur le premier champ à l'ouverture seulement (pas à chaque frappe).
+  useEffect(() => {
+    ref.current?.querySelector('textarea, input, select, button')?.focus();
+  }, []);
+
+  return createPortal(
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-warm-900/40"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      onMouseDown={(e) => { if (e.target === e.currentTarget) closeRef.current(); }}
+      // Les événements React remontent l'arbre des composants, portail compris :
+      // l'envoi d'un formulaire de la fenêtre ne doit pas atteindre celui de la page.
+      onSubmit={(e) => e.stopPropagation()}>
       <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="modal-title"
-        className="w-full max-w-lg bg-white rounded-2xl shadow-xl p-6">
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-6">
         <h2 id="modal-title" className="font-playfair text-xl font-semibold text-warm-900 mb-4">{title}</h2>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
