@@ -198,7 +198,7 @@ export default function Members() {
         <Empty message="Aucun adhérent pour ces critères." />
       ) : (
         <div className="bg-white rounded-2xl border border-warm-100 overflow-x-auto">
-          <table className="w-full text-left text-sm font-nunito">
+          <table className="table-cards w-full text-left text-sm font-nunito">
             <thead>
               <tr className="border-b border-warm-100 text-xs uppercase tracking-wide text-warm-500">
                 <th className="px-4 py-3 font-semibold">Date</th>
@@ -213,15 +213,15 @@ export default function Members() {
             <tbody>
               {data.members.map(m => (
                 <tr key={m.id} className="border-b border-warm-50 last:border-none">
-                  <td className="px-4 py-3 whitespace-nowrap text-warm-600">{frDate(m.joined_on)}</td>
+                  <td data-label="Adhésion" className="px-4 py-3 whitespace-nowrap text-warm-600">{frDate(m.joined_on)}</td>
                   <td className="px-4 py-3">
                     <span className="font-semibold text-warm-900 whitespace-nowrap">{m.last_name.toUpperCase()} {m.first_name}</span>
                     {m.tarif && <span className="block text-xs text-warm-500 whitespace-nowrap">{m.tarif}</span>}
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="Mail Guardia" className="px-4 py-3">
                     <SchoolEmailCell member={m} onSaved={() => { setMessage('Mail Guardia enregistré.'); load(); }} onError={setError} />
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td data-label="Équipe" className="px-4 py-3 whitespace-nowrap">
                     {m.team_id ? (
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">{m.team_role || 'Membre'}</span>
                     ) : (
@@ -230,9 +230,9 @@ export default function Members() {
                       </button>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-warm-700">{CHANNEL_LABELS[m.channel]}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{formatEuros(m.amount)}</td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                  <td data-label="Payé par" className="px-4 py-3 text-warm-700">{CHANNEL_LABELS[m.channel]}</td>
+                  <td data-label="Montant" className="px-4 py-3 text-right tabular-nums">{formatEuros(m.amount)}</td>
+                  <td className="cell-actions px-4 py-3 text-right whitespace-nowrap">
                     <button onClick={() => setEditing(m)} className="text-xs font-semibold text-orange-700 hover:underline mr-3">Modifier</button>
                     <button onClick={() => remove(m)} className="text-xs font-semibold text-red-600 hover:underline">Supprimer</button>
                   </td>

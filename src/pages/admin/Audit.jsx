@@ -100,7 +100,7 @@ export default function Audit() {
         <Empty message="Aucune action enregistrée pour l'instant." />
       ) : (
         <div className="bg-white rounded-2xl border border-warm-100 overflow-x-auto">
-          <table className="w-full text-left text-sm font-nunito">
+          <table className="table-cards w-full text-left text-sm font-nunito">
             <thead>
               <tr className="border-b border-warm-100 text-xs uppercase tracking-wide text-warm-500">
                 <th className="px-4 py-3 font-semibold whitespace-nowrap">Date</th>
@@ -112,10 +112,10 @@ export default function Audit() {
             <tbody>
               {entries.map(e => (
                 <tr key={e.id} className="border-b border-warm-50 last:border-none align-top">
-                  <td className="px-4 py-3 text-warm-600 whitespace-nowrap">{formatDateTime(e.created_at)}</td>
-                  <td className="px-4 py-3 text-warm-800">{e.actor_name ?? e.actor_email ?? 'Système'}</td>
-                  <td className="px-4 py-3 text-warm-800 whitespace-nowrap">{ACTION_LABELS[e.action] ?? e.action}</td>
-                  <td className="px-4 py-3 text-warm-600">{describeEntry(e)}</td>
+                  <td data-label="Date" className="px-4 py-3 text-warm-600 whitespace-nowrap">{formatDateTime(e.created_at)}</td>
+                  <td data-label="Auteur" className="px-4 py-3 text-warm-800">{e.actor_name ?? e.actor_email ?? 'Système'}</td>
+                  <td data-label="Action" className="px-4 py-3 text-warm-800 whitespace-nowrap">{ACTION_LABELS[e.action] ?? e.action}</td>
+                  <td data-label="Détail" className="px-4 py-3 text-warm-600">{describeEntry(e)}</td>
                 </tr>
               ))}
             </tbody>

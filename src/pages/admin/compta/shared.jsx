@@ -121,10 +121,10 @@ export function FilePicker({ files, onChange, disabled }) {
 export function SummaryCard({ label, value, hint, tone = 'default' }) {
   const color = tone === 'negative' ? 'text-red-700' : tone === 'positive' ? 'text-green-800' : 'text-warm-900';
   return (
-    <div className="bg-white rounded-2xl border border-warm-100 p-4">
-      <p className="font-nunito text-xs font-semibold uppercase tracking-wide text-warm-500">{label}</p>
-      <p className={`font-nunito text-xl font-bold tabular-nums mt-1 ${color}`}>{value}</p>
-      {hint && <p className="font-nunito text-xs text-warm-500 mt-1">{hint}</p>}
+    <div className="bg-white rounded-2xl border border-warm-100 px-3 py-2.5 sm:p-4">
+      <p className="font-nunito text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-warm-500 leading-tight">{label}</p>
+      <p className={`font-nunito text-lg sm:text-xl font-bold tabular-nums mt-0.5 sm:mt-1 ${color}`}>{value}</p>
+      {hint && <p className="font-nunito text-[11px] sm:text-xs text-warm-500 mt-0.5 sm:mt-1 leading-snug">{hint}</p>}
     </div>
   );
 }

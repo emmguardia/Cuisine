@@ -10,7 +10,7 @@ export function ComptaSummary({ summary }) {
   const t = summary.tresorerie;
   const ex = summary.exercice;
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
       <SummaryCard label="Banque" value={formatEuros(t.banque)} tone={t.banque < 0 ? 'negative' : 'default'}
         hint={summary.derniere_operation_banque ? `Dernière opération le ${frDate(summary.derniere_operation_banque)}` : null} />
       <SummaryCard label="Caisse" value={formatEuros(t.caisse)} />
@@ -42,6 +42,8 @@ export default function Operations() {
   const [ops, setOps] = useState(null);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({ q: '', treasury: '', category: '', from: '', to: '' });
+  const [showFilters, setShowFilters] = useState(false);
+  const activeFilters = ['treasury', 'category', 'from', 'to'].filter(k => filters[k]).length;
 
   useEffect(() => {
     api.compta.summary().then(setSummary).catch(err => setError(err.message));
@@ -72,9 +74,16 @@ export default function Operations() {
       <ComptaSummary summary={summary} />
 
       <div className="flex flex-col md:flex-row md:flex-wrap gap-3">
-        <label className="sr-only" htmlFor="f-q">Rechercher</label>
-        <input id="f-q" type="search" placeholder="Rechercher un libellé, un fournisseur, un numéro" value={filters.q}
-          onChange={e => set({ q: e.target.value })} className={`${input} md:flex-1 md:min-w-[16rem]`} />
+        <div className="flex gap-2 md:flex-1 md:min-w-[16rem]">
+          <label className="sr-only" htmlFor="f-q">Rechercher</label>
+          <input id="f-q" type="search" placeholder="Rechercher un libellé, un fournisseur…" value={filters.q}
+            onChange={e => set({ q: e.target.value })} className={`${input} flex-1`} />
+          <button type="button" onClick={() => setShowFilters(v => !v)} aria-expanded={showFilters}
+            className={`md:hidden ${btn.secondary} px-3`}>
+            Filtres{activeFilters ? ` (${activeFilters})` : ''}
+          </button>
+        </div>
+        <div className={`${showFilters ? 'flex' : 'hidden'} md:contents flex-col gap-3`}>
         <label className="sr-only" htmlFor="f-t">Moyen</label>
         <select id="f-t" value={filters.treasury} onChange={e => set({ treasury: e.target.value })} className={`${input} md:w-48`}>
           <option value="">Tous les moyens</option>
@@ -102,6 +111,7 @@ export default function Operations() {
           <label className="sr-only" htmlFor="f-to">Au</label>
           <input id="f-to" type="date" value={filters.to} onChange={e => set({ to: e.target.value })} className={`${input} md:w-40`} />
         </div>
+        </div>
       </div>
 
       {!ops || !meta ? <TableSkeleton cols={5} /> : ops.length === 0 ? (
@@ -123,8 +133,8 @@ export default function Operations() {
               {ops.map(op => (
                 <tr key={op.id} onClick={() => open(op.id)}
                   className="border-b border-warm-50 last:border-none hover:bg-orange-50/60 cursor-pointer align-top">
-                  <td className="px-4 py-3 whitespace-nowrap text-warm-600 hidden md:table-cell">{frDate(op.date)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-warm-600 hidden md:table-cell">{frDate(op.date)}</td>
+                  <td className="px-3 sm:px-4 py-3">
                     <a href={`/admin/compta/operations/${op.id}`} onClick={(e) => { e.stopPropagation(); onLinkClick(e, `/admin/compta/operations/${op.id}`); }}
                       className="font-semibold text-warm-900 hover:underline">{op.label}</a>
                     <p className="text-xs text-warm-500 mt-0.5">
@@ -134,12 +144,12 @@ export default function Operations() {
                     </p>
                     <p className="text-xs text-warm-500 md:hidden">{op.categories.map(c => categoryLabel(meta, c)).join(', ')}</p>
                   </td>
-                  <td className="px-4 py-3 text-warm-700 hidden md:table-cell">
+                  <td className="px-3 sm:px-4 py-3 text-warm-700 hidden md:table-cell">
                     {op.categories.map(c => categoryLabel(meta, c)).join(', ') || '—'}
                   </td>
-                  <td className="px-4 py-3 text-warm-700 whitespace-nowrap hidden md:table-cell">{treasuryText(op)}</td>
-                  <td className="px-4 py-3 text-right"><Amount kind={op.kind} cents={op.total} /></td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                  <td className="px-3 sm:px-4 py-3 text-warm-700 whitespace-nowrap hidden md:table-cell">{treasuryText(op)}</td>
+                  <td className="px-3 sm:px-4 py-3 text-right"><Amount kind={op.kind} cents={op.total} /></td>
+                  <td className="px-3 sm:px-4 py-3 text-right whitespace-nowrap">
                     {op.attachments > 0 ? (
                       <span className="inline-flex items-center gap-1 text-xs text-warm-500" title={`${op.attachments} justificatif(s)`}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8} aria-hidden="true">

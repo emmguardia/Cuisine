@@ -42,3 +42,27 @@
     @apply bg-white rounded-2xl shadow-cream hover:shadow-warm transition-all duration-300 hover:-translate-y-1;
   }
 }
+
+/* ── Tableaux de l'admin sur téléphone : une carte par ligne ─────────────
+ * Chaque cellule porte data-label (le titre de sa colonne), affiché à gauche.
+ * Une cellule sans data-label (nom, actions) prend toute la largeur. */
+@media (max-width: 767px) {
+  table.table-cards thead { display: none; }
+  table.table-cards, table.table-cards tbody { display: block; width: 100%; }
+  table.table-cards tr { display: flex; flex-direction: column; width: 100%; padding: 0.75rem 1rem; border-bottom: 1px solid #F2EADF; }
+  table.table-cards tr:last-child { border-bottom: 0; }
+  table.table-cards td {
+    display: grid; grid-template-columns: 7rem 1fr; gap: 0.5rem; align-items: center;
+    padding: 0.2rem 0 !important; border: 0; text-align: left !important; white-space: normal;
+  }
+  table.table-cards td[data-label]::before {
+    content: attr(data-label);
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #9A7050;
+  }
+  table.table-cards td > * { justify-self: start; }
+  table.table-cards td:not([data-label]) { display: block; }
+  /* La cellule titre (nom, libellé) passe en tête de carte. */
+  table.table-cards td:not([data-label]):not(.cell-actions) { order: -1; padding-bottom: 0.35rem !important; }
+  table.table-cards td.cell-actions { padding-top: 0.5rem !important; }
+  table.table-cards td.cell-actions > div { justify-content: flex-start; }
+}

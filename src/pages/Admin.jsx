@@ -56,7 +56,7 @@ function AdminRecipes() {
         <Empty message="Aucune recette publiée pour l'instant." />
       ) : (
         <div className="bg-white rounded-2xl border border-warm-100 overflow-hidden">
-          <table className="w-full text-left">
+          <table className="table-cards w-full text-left">
             <thead>
               <tr className="border-b border-orange-50">
                 {['Recette', 'Auteur', 'Difficulté', 'Date', ''].map(h => (
@@ -80,19 +80,19 @@ function AdminRecipes() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td data-label="Auteur" className="px-5 py-3.5">
                     <p className="font-nunito text-sm text-warm-700">{r.author_name}</p>
                     <p className="font-nunito text-xs text-warm-400">{r.author_email}</p>
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td data-label="Difficulté" className="px-5 py-3.5">
                     <DiffBadge d={r.difficulty} />
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td data-label="Date" className="px-5 py-3.5">
                     <p className="font-nunito text-xs text-warm-500">
                       {new Date(r.created_at).toLocaleDateString('fr-FR')}
                     </p>
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td className="cell-actions px-5 py-3.5">
                     <div className="flex gap-2 justify-end">
                       <a href={`/recette?id=${r.slug}`} target="_blank" rel="noreferrer"
                         className="px-3 py-1.5 text-xs font-semibold text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
@@ -192,7 +192,7 @@ function AdminUsers({ currentUserId, onRequestCreated }) {
           <Empty message="Aucun compte inscrit pour l'instant." />
         ) : (
           <div className="bg-white rounded-2xl border border-warm-100 overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="table-cards w-full text-left">
               <thead>
                 <tr className="border-b border-warm-100">
                   {['Compte', 'Rôle', 'Inscription', ''].map(h => (
@@ -217,11 +217,11 @@ function AdminUsers({ currentUserId, onRequestCreated }) {
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3"><RoleBadge role={u.role} /></td>
-                    <td className="px-5 py-3">
+                    <td data-label="Rôle" className="px-5 py-3"><RoleBadge role={u.role} /></td>
+                    <td data-label="Inscription" className="px-5 py-3">
                       <p className="font-nunito text-xs text-warm-500">{new Date(u.createdAt).toLocaleDateString('fr-FR')}</p>
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="cell-actions px-5 py-3">
                       {u.id !== currentUserId && (
                         <div className="flex gap-2 justify-end whitespace-nowrap">
                           <button onClick={() => askRole(u)} className={btn.small}>
@@ -360,7 +360,7 @@ function AdminEmails({ currentEmail, onRequestCreated }) {
           <Empty message="Aucun email dans la liste." />
         ) : (
           <div className="bg-white rounded-2xl border border-warm-100 overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="table-cards w-full text-left">
               <thead>
                 <tr className="border-b border-warm-100">
                   {['Email', 'Rôle', 'Ajouté le', ''].map(h => (
@@ -372,11 +372,11 @@ function AdminEmails({ currentEmail, onRequestCreated }) {
                 {emails.map(e => (
                   <tr key={e.id} className="border-b border-warm-50 last:border-none">
                     <td className="px-5 py-3"><p className="font-nunito text-sm font-semibold text-warm-800">{e.email}</p></td>
-                    <td className="px-5 py-3"><RoleBadge role={e.role} /></td>
-                    <td className="px-5 py-3">
+                    <td data-label="Rôle" className="px-5 py-3"><RoleBadge role={e.role} /></td>
+                    <td data-label="Ajouté le" className="px-5 py-3">
                       <p className="font-nunito text-xs text-warm-500">{new Date(e.created_at).toLocaleDateString('fr-FR')}</p>
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="cell-actions px-5 py-3">
                       {e.email.toLowerCase() !== currentEmail?.toLowerCase() && (
                         <div className="flex gap-2 justify-end whitespace-nowrap">
                           <button onClick={() => askRole(e)} className={btn.small}>
@@ -646,6 +646,53 @@ function NavLink({ item, active, badge }) {
   );
 }
 
+/** Menu de l'admin sur téléphone : la page en cours, et toutes les sections d'un geste. */
+function MobileNav({ current, summary, isActive }) {
+  const [open, setOpen] = useState(false);
+  const pending = summary?.to_review ?? 0;
+  return (
+    <div className="lg:hidden -mt-2">
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-controls="admin-mobile-nav"
+        className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-warm-100 rounded-2xl font-nunito text-sm font-semibold text-warm-900">
+        <svg className="w-5 h-5 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8} aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[current.icon]} />
+        </svg>
+        <span className="flex-1 text-left">{current.label}</span>
+        {pending > 0 && !open && (
+          <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white text-xs font-bold">{pending} à valider</span>
+        )}
+        <span className="text-xs font-semibold text-orange-700">{open ? 'Fermer' : 'Menu'}</span>
+      </button>
+      {open && (
+        <div id="admin-mobile-nav" className="mt-2 bg-white border border-warm-100 rounded-2xl p-3 space-y-3">
+          {NAV.map(section => (
+            <div key={section.group}>
+              <p className="px-2 mb-1 font-nunito text-xs font-semibold uppercase tracking-wide text-warm-400">{section.group}</p>
+              <div className="grid grid-cols-2 gap-1">
+                {section.items.map(item => (
+                  <a key={item.path} href={item.path}
+                    onClick={(e) => { setOpen(false); onLinkClick(e, item.path); }}
+                    aria-current={isActive(item) ? 'page' : undefined}
+                    className={`flex items-center gap-2 px-2.5 py-2.5 rounded-xl font-nunito text-sm font-semibold ${
+                      isActive(item) ? 'bg-orange-100 text-orange-800' : 'text-warm-700 active:bg-warm-50'}`}>
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8} aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[item.icon]} />
+                    </svg>
+                    <span className="flex-1 leading-tight">{item.label}</span>
+                    {item.badge && pending > 0 && (
+                      <span className="px-1.5 rounded-full bg-orange-500 text-white text-xs font-bold">{pending}</span>
+                    )}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Admin() {
   const { data: session, isPending } = authClient.useSession();
   const path = usePathname().replace(/\/+$/, '') || '/admin';
@@ -665,6 +712,9 @@ export default function Admin() {
   if (!isAdmin) return <div className="min-h-screen bg-cream-100" />;
 
   const user = session.user;
+
+  const isActive = (item) => path === item.path || (item.prefix && path.startsWith(item.path + '/'));
+  const current = NAV.flatMap(g => g.items).filter(isActive).sort((a, b) => b.path.length - a.path.length)[0] ?? NAV[0].items[0];
 
   const operationMatch = path.match(/^\/admin\/compta\/operations\/([0-9a-f-]{36})$/);
   const eventMatch = path.match(/^\/admin\/evenements\/([0-9a-f-]{36})$/);
@@ -703,23 +753,25 @@ export default function Admin() {
       <Header solid />
 
       <main className="pt-[90px] pb-16">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 flex flex-col lg:flex-row gap-8">
-          <nav aria-label="Administration" className="lg:w-60 flex-shrink-0">
-            <div className="lg:sticky lg:top-[110px] flex lg:flex-col gap-1 lg:gap-6 overflow-x-auto pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8 flex flex-col lg:flex-row gap-5 lg:gap-8">
+          <nav aria-label="Administration" className="hidden lg:block lg:w-60 flex-shrink-0">
+            <div className="sticky top-[110px] flex flex-col gap-6">
               {NAV.map(section => (
-                <div key={section.group} className="flex lg:flex-col gap-1">
-                  <p className="hidden lg:block px-3 mb-1 font-nunito text-xs font-semibold uppercase tracking-wide text-warm-400">
+                <div key={section.group} className="flex flex-col gap-1">
+                  <p className="px-3 mb-1 font-nunito text-xs font-semibold uppercase tracking-wide text-warm-400">
                     {section.group}
                   </p>
                   {section.items.map(item => (
                     <NavLink key={item.path} item={item}
-                      active={path === item.path || (item.prefix && path.startsWith(item.path + '/'))}
+                      active={isActive(item)}
                       badge={item.badge ? summary?.to_review : 0} />
                   ))}
                 </div>
               ))}
             </div>
           </nav>
+
+          <MobileNav current={current} summary={summary} isActive={isActive} />
 
           <div className="flex-1 min-w-0">{content}</div>
         </div>
