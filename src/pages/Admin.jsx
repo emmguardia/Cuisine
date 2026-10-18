@@ -16,6 +16,7 @@ import Caisse from './admin/compta/Caisse';
 import Import from './admin/compta/Import';
 import Members from './admin/Members';
 import Integrations from './admin/Integrations';
+import { EquipmentList, EquipmentDetail, InventoryCheck } from './admin/Equipment';
 import { EventsList, EventDetail } from './admin/Events';
 import { navigate } from '../lib/router';
 
@@ -420,6 +421,14 @@ function AdminTeam() {
   };
   useEffect(load, []);
 
+  const [adherents, setAdherents] = useState([]);
+  useEffect(() => {
+    api.membres.list().then(d => setAdherents(d.members)).catch(() => setAdherents([]));
+  }, [members]);
+  const available = adherents
+    .filter(a => !a.team_id)
+    .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`, 'fr'));
+
   const resetForm = () => { setForm({ name: '', role: '', photo_url: '' }); setEditing(null); setError(null); };
 
   const handleImage = async (e) => {
@@ -495,6 +504,19 @@ function AdminTeam() {
             </div>
 
             <div className="flex-1 space-y-3">
+              {!editing && available.length > 0 && (
+                <div>
+                  <label htmlFor="team-adherent" className="block text-sm font-semibold text-warm-700 mb-1.5">Adhérent</label>
+                  <select id="team-adherent" value={form.member_id ?? ''} className={input}
+                    onChange={e => {
+                      const a = available.find(x => x.id === e.target.value);
+                      setForm(f => a ? { ...f, member_id: a.id, name: `${a.first_name} ${a.last_name}` } : { ...f, member_id: undefined });
+                    }}>
+                    <option value="">Personne hors adhérents…</option>
+                    {available.map(a => <option key={a.id} value={a.id}>{a.first_name} {a.last_name}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-semibold text-warm-700 mb-1.5">Nom *</label>
                 <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required
@@ -575,6 +597,7 @@ const ICONS = {
   compta:   'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z',
   events:   'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
   members:  'M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+  materiel: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
   sync:     'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
   caisse:   'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z',
   recipes:  'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
@@ -593,6 +616,7 @@ const NAV = [
     { path: '/admin/compta',     label: 'Comptabilité',       icon: 'compta', prefix: true },
     { path: '/admin/caisse',     label: 'Caisse',             icon: 'caisse' },
     { path: '/admin/evenements', label: 'Événements',         icon: 'events', prefix: true },
+    { path: '/admin/materiel',   label: 'Matériel',           icon: 'materiel', prefix: true },
     { path: '/admin/adherents',  label: 'Adhérents',          icon: 'members' },
     { path: '/admin/integrations', label: 'SumUp et HelloAsso', icon: 'sync' },
   ]},
@@ -644,15 +668,22 @@ export default function Admin() {
 
   const operationMatch = path.match(/^\/admin\/compta\/operations\/([0-9a-f-]{36})$/);
   const eventMatch = path.match(/^\/admin\/evenements\/([0-9a-f-]{36})$/);
+  const equipmentMatch = path.match(/^\/admin\/materiel\/([0-9a-f-]{36})$/);
+  const checkMatch = path.match(/^\/admin\/materiel\/inventaire\/([0-9a-f-]{36})$/);
 
   let content;
   if (operationMatch) {
     content = <OperationDetail key={operationMatch[1]} id={operationMatch[1]} currentUserId={user.id} />;
+  } else if (equipmentMatch) {
+    content = <EquipmentDetail key={equipmentMatch[1]} id={equipmentMatch[1]} />;
+  } else if (checkMatch) {
+    content = <InventoryCheck key={checkMatch[1]} id={checkMatch[1]} />;
   } else if (eventMatch) {
     content = <EventDetail key={eventMatch[1]} id={eventMatch[1]} />;
   } else switch (path) {
     case '/admin/evenements':      content = <EventsList />; break;
     case '/admin/adherents':       content = <Members />; break;
+    case '/admin/materiel':        content = <EquipmentList />; break;
     case '/admin/integrations':    content = <Integrations />; break;
     case '/admin/compta':          content = <Operations />; break;
     case '/admin/compta/nouvelle': content = <><PageTitle title="Nouvelle opération" /><OperationForm onCancel={() => navigate('/admin/compta')} /></>; break;

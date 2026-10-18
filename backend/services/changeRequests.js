@@ -205,7 +205,7 @@ export async function approveRequest({ id, actor, comment = null, req = null }) 
         return { obsolete: true };
       }
 
-      const ctx = { targetId: row.target_id, payload, current, actor, requestedBy: row.requested_by };
+      const ctx = { targetId: row.target_id, payload, current, actor, requestedBy: row.requested_by, reason: row.reason };
       await handler.check(conn, ctx);
       await handler.apply(conn, ctx);
       if (handler.afterCommit) afterCommit = () => handler.afterCommit(ctx);

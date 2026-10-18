@@ -84,7 +84,7 @@ function MemberPicker({ id, value, onChange }) {
   );
 }
 
-export default function OperationForm({ mode = 'create', initial = null, operationId = null, onCancel }) {
+export default function OperationForm({ mode = 'create', initial = null, operationId = null, onCancel, onDone }) {
   const { meta, error: metaError } = useComptaMeta();
   const [f, setF] = useState(() => fromOperation(initial));
   const [files, setFiles] = useState([]);
@@ -126,7 +126,7 @@ export default function OperationForm({ mode = 'create', initial = null, operati
         navigate(`/admin/compta/operations/${created.id}${failed.length ? '?justificatifs=echec' : ''}`);
       } else {
         await api.compta.correct(operationId, op);
-        navigate(`/admin/compta/operations/${operationId}?corrigee=1`);
+        onDone?.('Correction enregistrée.');
       }
     } catch (err) {
       setError(err.message);
@@ -349,7 +349,8 @@ export default function OperationForm({ mode = 'create', initial = null, operati
           onClose={() => setRequestOp(null)}
           onSubmit={async (reason) => {
             await api.requests.create({ type: 'entry.update', target_id: operationId, payload: requestOp, reason });
-            navigate(`/admin/compta/operations/${operationId}?demande=1`);
+            setRequestOp(null);
+            onDone?.('Demande de correction envoyée. Elle sera appliquée dès qu\'un autre membre du bureau l\'aura validée dans « Demandes à valider ».');
           }} />
       )}
     </form>

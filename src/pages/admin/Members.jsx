@@ -18,13 +18,13 @@ function currentSeason() {
 }
 
 const EMPTY = () => ({
-  last_name: '', first_name: '', email: '', joined_on: todayIso(), season: currentSeason(),
+  last_name: '', first_name: '', email: '', school_email: '', joined_on: todayIso(), season: currentSeason(),
   amount: '7,00', tarif: 'Etudiant Quest', channel: 'sumup', notes: '',
 });
 
 function MemberDialog({ member, onClose, onSaved }) {
   const [f, setF] = useState(() => member
-    ? { ...member, email: member.email ?? '', amount: centsToInput(member.amount), tarif: member.tarif ?? '', notes: member.notes ?? '' }
+    ? { ...member, email: member.email ?? '', school_email: member.school_email ?? '', amount: centsToInput(member.amount), tarif: member.tarif ?? '', notes: member.notes ?? '' }
     : EMPTY());
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -36,6 +36,7 @@ function MemberDialog({ member, onClose, onSaved }) {
     if (amount == null || amount < 0) { setError('Montant invalide (ex. 7,00).'); return; }
     const data = {
       last_name: f.last_name.trim(), first_name: f.first_name.trim(), email: f.email.trim() || null,
+      school_email: f.school_email.trim() || null,
       joined_on: f.joined_on, season: f.season.trim(), amount, tarif: f.tarif.trim() || null,
       channel: f.channel, notes: f.notes.trim() || null,
     };
@@ -58,7 +59,10 @@ function MemberDialog({ member, onClose, onSaved }) {
           <div>{label('Nom', 'm-last')}<input id="m-last" required maxLength={100} value={f.last_name} onChange={e => set({ last_name: e.target.value })} className={input} /></div>
           <div>{label('Prénom', 'm-first')}<input id="m-first" required maxLength={100} value={f.first_name} onChange={e => set({ first_name: e.target.value })} className={input} /></div>
         </div>
-        <div>{label('Email (facultatif)', 'm-email')}<input id="m-email" type="email" maxLength={255} value={f.email} onChange={e => set({ email: e.target.value })} className={input} /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>{label('Email (facultatif)', 'm-email')}<input id="m-email" type="email" maxLength={255} value={f.email} onChange={e => set({ email: e.target.value })} className={input} /></div>
+          <div>{label('Mail Guardia (facultatif)', 'm-school')}<input id="m-school" type="email" maxLength={255} placeholder="prenom.nom@guardiaschool.fr" value={f.school_email} onChange={e => set({ school_email: e.target.value })} className={input} /></div>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>{label('Date d\'adhésion', 'm-date')}<input id="m-date" type="date" required value={f.joined_on} onChange={e => set({ joined_on: e.target.value })} className={input} /></div>
           <div>{label('Saison', 'm-season')}<input id="m-season" required pattern="\d{4}-\d{4}" value={f.season} onChange={e => set({ season: e.target.value })} className={input} /></div>
@@ -80,6 +84,48 @@ function MemberDialog({ member, onClose, onSaved }) {
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** Saisie rapide du mail Guardia depuis la liste. */
+function SchoolEmailCell({ member, onSaved, onError }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  if (member.school_email && !editing) {
+    return (
+      <button type="button" onClick={() => { setValue(member.school_email); setEditing(true); }}
+        className="text-left text-warm-700 hover:underline" title="Modifier le mail Guardia">{member.school_email}</button>
+    );
+  }
+  if (!editing) {
+    return (
+      <button type="button" onClick={() => { setValue(''); setEditing(true); }}
+        className="text-xs font-semibold text-orange-700 hover:underline">Ajouter</button>
+    );
+  }
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.membres.setSchoolEmail(member.id, value.trim());
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      onError(err.details?.[0]?.message ?? err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={save} className="flex items-center gap-2">
+      <input type="email" autoFocus aria-label={`Mail Guardia de ${member.first_name} ${member.last_name}`}
+        placeholder="prenom.nom@guardiaschool.fr" value={value} onChange={e => setValue(e.target.value)}
+        className="w-56 px-2 py-1 border border-warm-200 rounded-lg text-sm" />
+      <button type="submit" disabled={busy} className="text-xs font-semibold text-orange-700 hover:underline">OK</button>
+      <button type="button" onClick={() => setEditing(false)} className="text-xs text-warm-500 hover:underline">Annuler</button>
+    </form>
   );
 }
 
@@ -106,6 +152,16 @@ export default function Members() {
     for (const m of list) byChannel[m.channel] = (byChannel[m.channel] || 0) + 1;
     return { count: list.length, amount: list.reduce((s, m) => s + m.amount, 0), byChannel };
   }, [data]);
+
+  const addToTeam = async (m) => {
+    try {
+      await api.membres.addToTeam(m.id);
+      setMessage(`${m.first_name} ${m.last_name} apparaît maintenant sur la page Notre équipe (ajoutez sa photo dans Équipe).`);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   const remove = async (m) => {
     if (!confirm(`Supprimer ${m.first_name} ${m.last_name} de la liste des adhérents ? Le paiement reste en compta.`)) return;
@@ -147,7 +203,8 @@ export default function Members() {
               <tr className="border-b border-warm-100 text-xs uppercase tracking-wide text-warm-500">
                 <th className="px-4 py-3 font-semibold">Date</th>
                 <th className="px-4 py-3 font-semibold">Adhérent</th>
-                <th className="px-4 py-3 font-semibold hidden lg:table-cell">Email</th>
+                <th className="px-4 py-3 font-semibold">Mail Guardia</th>
+                <th className="px-4 py-3 font-semibold">Équipe</th>
                 <th className="px-4 py-3 font-semibold">Payé par</th>
                 <th className="px-4 py-3 font-semibold text-right">Montant</th>
                 <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
@@ -161,7 +218,18 @@ export default function Members() {
                     <span className="font-semibold text-warm-900 whitespace-nowrap">{m.last_name.toUpperCase()} {m.first_name}</span>
                     {m.tarif && <span className="block text-xs text-warm-500 whitespace-nowrap">{m.tarif}</span>}
                   </td>
-                  <td className="px-4 py-3 text-warm-700 hidden lg:table-cell">{m.email ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <SchoolEmailCell member={m} onSaved={() => { setMessage('Mail Guardia enregistré.'); load(); }} onError={setError} />
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {m.team_id ? (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">{m.team_role || 'Membre'}</span>
+                    ) : (
+                      <button type="button" onClick={() => addToTeam(m)} className="text-xs font-semibold text-orange-700 hover:underline">
+                        Ajouter à l'équipe
+                      </button>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-warm-700">{CHANNEL_LABELS[m.channel]}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{formatEuros(m.amount)}</td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">

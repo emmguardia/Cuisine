@@ -450,3 +450,10 @@ Reste pour plus tard : import CSV Crédit Mutuel direct (phase 3), exports Excel
 - Adhérents : liste, ajout, modification, suppression, par saison et moyen de paiement (HelloAsso, SumUp, virement, espèces).
 - Événements (hors compta) : opérations rattachées, montant affecté facultatif, rentrées - dépenses = résultat ; suivent les corrections et annulations.
 - Accès API vérifiés : HelloAsso (User-Agent obligatoire, sinon 403) et SumUp (transactions, versements). Intégrations automatiques à coder.
+
+### 18/10/2026
+
+- Matériel : fiches (quantité, état, provenance achat/don, photo, dépense liée), historique des mouvements en ajout seul, contrôles d'inventaire depuis le téléphone (écarts, décision obligatoire : perdu, cassé, retrouvé, à recompter). Changer une quantité hors contrôle ou sortir une fiche : double validation.
+- Équipe reliée aux adhérents, mail Guardia saisi depuis la liste, choix de l'adhérent dans les formulaires (payeur, équipe).
+- Corrigé : les fenêtres de demande étaient imbriquées dans le formulaire de la page, l'envoi rechargeait la page sans créer la demande. Fenêtres rendues en portail ; retour à l'opération avec confirmation.
+- Retiré : vérification du solde contre l'appli bancaire.

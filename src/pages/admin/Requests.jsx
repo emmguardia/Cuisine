@@ -14,6 +14,8 @@ export const REQUEST_TYPES = {
   'entry.update':       'Correction d\'une opération',
   'entry.cancel':       'Annulation d\'une opération',
   'attachment.remove':  'Retrait d\'un justificatif',
+  'equipment.adjust':   'Changement de quantité de matériel',
+  'equipment.retire':   'Sortie de l\'inventaire',
 };
 
 const STATUS = {
@@ -29,6 +31,7 @@ const FIELD_LABELS = {
   role: 'Rôle', email: 'Email', compte: 'Compte', acces: 'Accès',
   statut: 'Statut', date: 'Date', libelle: 'Libellé', montant: 'Montant', moyen: 'Moyen',
   ventilation: 'Ventilation', tiers: 'Tiers', notes: 'Notes', fichier: 'Fichier',
+  quantite: 'Quantité', mouvement: 'Mouvement',
 };
 
 function formatValue(key, value) {
@@ -39,7 +42,10 @@ function formatValue(key, value) {
 
 /** Tableau avant / après, champ par champ. */
 function Diff({ before, after }) {
-  const keys = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])];
+  const all = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])];
+  // Seuls les champs modifiés ; tout afficher si rien ne diffère (ajout, suppression).
+  const changed = all.filter(k => formatValue(k, before?.[k]) !== formatValue(k, after?.[k]));
+  const keys = changed.length && before && after ? changed : all;
   if (!keys.length) return null;
   return (
     <table className="w-full text-sm font-nunito">

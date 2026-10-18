@@ -75,11 +75,27 @@ export const api = {
     create: (data)        => req('/admin/membres',       { method: 'POST',   body: data }),
     update: (id, data)    => req(`/admin/membres/${id}`, { method: 'PUT',    body: data }),
     remove: (id)          => req(`/admin/membres/${id}`, { method: 'DELETE' }),
+    setSchoolEmail: (id, email) => req(`/admin/membres/${id}/mail-guardia`, { method: 'PATCH', body: { school_email: email || null } }),
+    addToTeam: (id, role)       => req(`/admin/membres/${id}/equipe`,        { method: 'POST',  body: role ? { role } : {} }),
   },
 
   integrations: {
     status: ()         => req('/admin/integrations'),
     sync:   (provider) => req(`/admin/integrations/${provider}/sync`, { method: 'POST' }),
+  },
+
+  materiel: {
+    list:     (params = {}) => req(`/admin/materiel?${new URLSearchParams(params)}`),
+    get:      (id)          => req(`/admin/materiel/${id}`),
+    create:   (data)        => req('/admin/materiel',       { method: 'POST', body: data }),
+    update:   (id, data)    => req(`/admin/materiel/${id}`, { method: 'PUT',  body: data }),
+    photoUrl: (id, v = '')  => `${BASE}/admin/materiel/${id}/photo${v ? `?v=${v}` : ''}`,
+    checks:   ()            => req('/admin/materiel/inventaires'),
+    startCheck: (date)      => req('/admin/materiel/inventaires', { method: 'POST', body: { date } }),
+    getCheck: (id)          => req(`/admin/materiel/inventaires/${id}`),
+    setLine:  (id, eqId, data) => req(`/admin/materiel/inventaires/${id}/lignes/${eqId}`, { method: 'PUT', body: data }),
+    validate: (id)          => req(`/admin/materiel/inventaires/${id}/valider`,    { method: 'POST' }),
+    abandon:  (id)          => req(`/admin/materiel/inventaires/${id}/abandonner`, { method: 'POST' }),
   },
 
   evenements: {
@@ -137,4 +153,15 @@ export async function uploadAttachment(operationId, blob, filename) {
     throw new Error(data.error || `Erreur ${res.status}`);
   }
   return res.json();
+}
+
+/** Photo d'une fiche matériel (corps binaire). */
+export async function uploadEquipmentPhoto(id, blob) {
+  const res = await fetch(`${BASE}/admin/materiel/${id}/photo`, {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': blob.type }, body: blob,
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Erreur ${res.status}`);
+  }
 }

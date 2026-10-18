@@ -83,8 +83,6 @@ export default function OperationDetail({ id, currentUserId }) {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(() => {
     const q = new URLSearchParams(window.location.search);
-    if (q.get('demande')) return 'Demande de correction envoyée. Elle sera appliquée après validation par un autre membre du bureau.';
-    if (q.get('corrigee')) return 'Correction enregistrée.';
     if (q.get('justificatifs') === 'echec') return null;
     return null;
   });
@@ -117,7 +115,8 @@ export default function OperationDetail({ id, currentUserId }) {
           subtitle={editing === 'request'
             ? 'La correction sera appliquée après validation par un autre membre du bureau, par une écriture inverse suivie de la nouvelle version.'
             : `Correction directe possible encore ${minutesLeft} min.`} />
-        <OperationForm mode={editing} initial={op.operation} operationId={op.id} onCancel={() => setEditing(null)} />
+        <OperationForm mode={editing} initial={op.operation} operationId={op.id} onCancel={() => setEditing(null)}
+          onDone={(msg) => { setEditing(null); setMessage(msg); load(); }} />
       </div>
     );
   }
