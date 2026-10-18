@@ -738,3 +738,40 @@ export async function importLot(conn, lot, actor, { dryRun = false, req = null }
   });
   return { dry_run: false, operations: report, members, events };
 }
+
+/* ── Remboursements de membres (notes de frais) ─────────────────────── */
+/**
+ * Avances et remboursements par membre (compte 467), regroupés par nom.
+ * @param {{ membre?: string }} opts  filtre sur un membre (nom insensible à la casse)
+ */
+export async function memberDebts({ membre } = {}) {
+  const [rows] = await getPool().execute(
+    `SELECT e.id, e.number, e.date, e.label, e.kind, e.third_party, e.origin_id, e.created_at,
+            (SELECT SUM(l.debit) FROM entry_line l WHERE l.entry_id = e.id) AS total,
+            (SELECT COUNT(*) FROM attachment a WHERE a.origin_id = e.origin_id AND a.removed_at IS NULL) AS attachments,
+            (SELECT GROUP_CONCAT(c.label ORDER BY l.id SEPARATOR ', ')
+               FROM entry_line l JOIN category c ON c.id = l.category_id WHERE l.entry_id = e.id) AS categories
+       FROM entry e
+      WHERE e.status = 'active'
+        AND ((e.kind = 'depense' AND e.treasury = 'membre')
+          OR (e.kind = 'virement' AND EXISTS (SELECT 1 FROM entry_line l WHERE l.entry_id = e.id AND l.account_code = '467' AND l.debit > 0)))
+      ORDER BY e.date, e.created_at`
+  );
+  const groups = new Map();
+  for (const r of rows) {
+    const name = (r.third_party || 'Membre non précisé').trim();
+    const key = name.toLowerCase();
+    if (membre && key !== membre.trim().toLowerCase()) continue;
+    if (!groups.has(key)) groups.set(key, { membre: name, avances: [], remboursements: [] });
+    const item = {
+      id: r.id, number: r.number, date: dateOnly(r.date), label: r.label, amount: Number(r.total || 0),
+      attachments: Number(r.attachments), categories: r.categories,
+    };
+    groups.get(key)[r.kind === 'depense' ? 'avances' : 'remboursements'].push(item);
+  }
+  return [...groups.values()].map(g => {
+    const avance = g.avances.reduce((s, a) => s + a.amount, 0);
+    const rembourse = g.remboursements.reduce((s, a) => s + a.amount, 0);
+    return { ...g, avance, rembourse, du: avance - rembourse };
+  }).sort((a, b) => b.du - a.du || a.membre.localeCompare(b.membre, 'fr'));
+}

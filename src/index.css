@@ -66,3 +66,11 @@
   table.table-cards td.cell-actions { padding-top: 0.5rem !important; }
   table.table-cards td.cell-actions > div { justify-content: flex-start; }
 }
+
+/* ── Impression (note de frais) ─────────────────────────────────────── */
+@page { size: A4; margin: 0; }
+@media print {
+  .no-print { display: none !important; }
+  html, body { background: #fff !important; }
+  .note-de-frais { box-shadow: none !important; max-width: none !important; }
+}

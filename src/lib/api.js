@@ -66,6 +66,7 @@ export const api = {
     check:      (op)           => req('/admin/compta/operations/check', { method: 'POST', body: op }),
     create:     (op)           => req('/admin/compta/operations',       { method: 'POST', body: op }),
     correct:    (id, op)       => req(`/admin/compta/operations/${id}`, { method: 'PUT',  body: op }),
+    remboursements: (membre) => req(`/admin/compta/remboursements${membre ? `?membre=${encodeURIComponent(membre)}` : ''}`),
     importLot:  (lot, dryRun)  => req(`/admin/compta/import?dry_run=${dryRun ? 1 : 0}`, { method: 'POST', body: lot }),
     attachmentUrl: (id, download = false) => `${BASE}/admin/compta/attachments/${id}${download ? '?download=1' : ''}`,
   },

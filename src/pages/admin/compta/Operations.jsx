@@ -26,9 +26,11 @@ export function ComptaSummary({ summary }) {
           {t.sumup !== 0 && <SummaryCard label="SumUp en attente" value={formatEuros(t.sumup)} />}
           {t.helloasso !== 0 && <SummaryCard label="HelloAsso en attente" value={formatEuros(t.helloasso)} />}
           {summary.membres_a_rembourser !== 0 && (
+            <a href="/admin/compta/remboursements" onClick={(e) => onLinkClick(e, '/admin/compta/remboursements')} className="contents">
             <SummaryCard label="À rembourser aux membres" value={formatEuros(summary.membres_a_rembourser)}
               tone="negative"
-              hint={summary.remboursements.map(r => `${r.membre ?? 'Membre'} : ${formatEuros(r.montant)}`).join(', ')} />
+              hint={`${summary.remboursements.map(r => `${r.membre ?? 'Membre'} : ${formatEuros(r.montant)}`).join(', ')} · Note de frais`} />
+            </a>
           )}
         </>
       )}
@@ -65,6 +67,7 @@ export default function Operations() {
       <PageTitle title="Comptabilité"
         actions={
           <div className="flex flex-wrap gap-2">
+            <a href="/admin/compta/remboursements" onClick={(e) => onLinkClick(e, '/admin/compta/remboursements')} className={btn.secondary}>Remboursements</a>
             <a href="/admin/compta/import" onClick={(e) => onLinkClick(e, '/admin/compta/import')} className={btn.secondary}>Importer un lot</a>
             <a href="/admin/compta/nouvelle" onClick={(e) => onLinkClick(e, '/admin/compta/nouvelle')} className={btn.primary}>Nouvelle opération</a>
           </div>

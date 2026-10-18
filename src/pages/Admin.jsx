@@ -14,6 +14,8 @@ import OperationForm from './admin/compta/OperationForm';
 import OperationDetail from './admin/compta/OperationDetail';
 import Caisse from './admin/compta/Caisse';
 import Import from './admin/compta/Import';
+import { Remboursements, NoteDeFrais } from './admin/compta/Remboursements';
+import { todayIso } from './admin/compta/money';
 import Members from './admin/Members';
 import Integrations from './admin/Integrations';
 import { EquipmentList, EquipmentDetail, InventoryCheck } from './admin/Equipment';
@@ -711,6 +713,9 @@ export default function Admin() {
 
   if (!isAdmin) return <div className="min-h-screen bg-cream-100" />;
 
+  // Document à imprimer : sans en-tête ni menu autour.
+  if (path === '/admin/compta/note-de-frais') return <NoteDeFrais />;
+
   const user = session.user;
 
   const isActive = (item) => path === item.path || (item.prefix && path.startsWith(item.path + '/'));
@@ -736,7 +741,19 @@ export default function Admin() {
     case '/admin/materiel':        content = <EquipmentList />; break;
     case '/admin/integrations':    content = <Integrations />; break;
     case '/admin/compta':          content = <Operations />; break;
-    case '/admin/compta/nouvelle': content = <><PageTitle title="Nouvelle opération" /><OperationForm onCancel={() => navigate('/admin/compta')} /></>; break;
+    case '/admin/compta/nouvelle': {
+      // Remboursement d'un membre pré-rempli depuis la page Remboursements.
+      const q = new URLSearchParams(window.location.search);
+      const membre = q.get('remboursement');
+      const initial = membre ? {
+        kind: 'virement', date: todayIso(), label: `Remboursement note de frais ${membre}`,
+        from: 'banque', to: 'membre', third_party: membre, amount: Number(q.get('montant')) || null,
+      } : null;
+      content = <><PageTitle title={membre ? `Rembourser ${membre}` : 'Nouvelle opération'} />
+        <OperationForm key={window.location.search} initial={initial} onCancel={() => navigate(membre ? '/admin/compta/remboursements' : '/admin/compta')} /></>;
+      break;
+    }
+    case '/admin/compta/remboursements': content = <Remboursements />; break;
     case '/admin/compta/import':   content = <Import />; break;
     case '/admin/caisse':          content = <Caisse />; break;
     case '/admin/demandes':   content = <Requests currentUserId={user.id} onChange={refreshSummary} />; break;
