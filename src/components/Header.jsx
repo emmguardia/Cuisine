@@ -210,7 +210,7 @@ export default function Header({ solid = false }) {
       </div>
 
       {/* Menu mobile déroulant */}
-      <div className={`md:hidden overflow-hidden transition-all duration-300 ${menuOpen ? 'max-h-[480px]' : 'max-h-0'}`}>
+      <div className={`md:hidden overflow-hidden transition-all duration-300 ${menuOpen ? 'max-h-[720px]' : 'max-h-0'}`}>
         <div className="bg-[#FFFBF5] px-5 pb-6 flex flex-col gap-1 border-t border-orange-100">
           {navLinks.map((link) => (
             <a
@@ -222,6 +222,21 @@ export default function Header({ solid = false }) {
               {link.label}
             </a>
           ))}
+
+          {!isPending && user && (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <a href="/dashboard" onClick={() => setMenuOpen(false)}
+                className="font-nunito text-[14px] font-semibold text-warm-800 text-center py-3 rounded-xl border border-orange-100 bg-white">
+                Mes recettes
+              </a>
+              {user.role === 'admin' && (
+                <a href="/admin" onClick={() => setMenuOpen(false)}
+                  className="font-nunito text-[14px] font-bold text-white text-center py-3 rounded-xl bg-orange-500">
+                  Administration
+                </a>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center gap-3 pt-4">
             {!isPending && !user && (

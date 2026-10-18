@@ -78,7 +78,7 @@ export function EventsList() {
             <SummaryCard label="Résultat cumulé" value={formatEuros(total, { sign: true })} tone={total < 0 ? 'negative' : 'positive'} />
           </div>
           <div className="bg-white rounded-2xl border border-warm-100 overflow-x-auto">
-            <table className="w-full text-left text-sm font-nunito">
+            <table className="table-cards w-full text-left text-sm font-nunito">
               <thead>
                 <tr className="border-b border-warm-100 text-xs uppercase tracking-wide text-warm-500">
                   <th className="px-4 py-3 font-semibold">Date</th>
@@ -92,15 +92,15 @@ export function EventsList() {
                 {events.map(ev => (
                   <tr key={ev.id} onClick={() => navigate(`/admin/evenements/${ev.id}`)}
                     className="border-b border-warm-50 last:border-none hover:bg-orange-50/60 cursor-pointer">
-                    <td className="px-4 py-3 whitespace-nowrap text-warm-600">{frDate(ev.date)}</td>
+                    <td data-label="Date" className="px-4 py-3 whitespace-nowrap text-warm-600">{frDate(ev.date)}</td>
                     <td className="px-4 py-3">
                       <a href={`/admin/evenements/${ev.id}`} onClick={(e) => { e.stopPropagation(); onLinkClick(e, `/admin/evenements/${ev.id}`); }}
                         className="font-semibold text-warm-900 hover:underline">{ev.name}</a>
                       <span className="block text-xs text-warm-500">{ev.operations} opération{ev.operations > 1 ? 's' : ''} rattachée{ev.operations > 1 ? 's' : ''}</span>
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-green-800">{formatEuros(ev.recettes)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{formatEuros(ev.depenses)}</td>
-                    <td className={`px-4 py-3 text-right tabular-nums font-bold ${ev.resultat < 0 ? 'text-red-700' : 'text-green-800'}`}>
+                    <td data-label="Rentrées" className="px-4 py-3 text-right tabular-nums text-green-800">{formatEuros(ev.recettes)}</td>
+                    <td data-label="Dépenses" className="px-4 py-3 text-right tabular-nums">{formatEuros(ev.depenses)}</td>
+                    <td data-label="Résultat" className={`px-4 py-3 text-right tabular-nums font-bold ${ev.resultat < 0 ? 'text-red-700' : 'text-green-800'}`}>
                       {formatEuros(ev.resultat, { sign: true })}
                     </td>
                   </tr>
