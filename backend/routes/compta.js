@@ -2,6 +2,7 @@
  * Comptabilité — bureau uniquement.
  * GET  /api/admin/compta/meta                      → catégories, moyens de paiement, exercices
  * GET  /api/admin/compta/summary                   → soldes, résultat de l'exercice, à traiter
+ * GET  /api/admin/compta/remboursements?membre=    → avances et remboursements par membre (notes de frais)
  * GET  /api/admin/compta/operations                → liste filtrable
  * POST /api/admin/compta/operations/check          → avertissements avant saisie (doublon, date…)
  * POST /api/admin/compta/operations                → saisir une opération
@@ -24,7 +25,7 @@ import { validate } from '../middleware/validate.js';
 import { HttpError } from '../lib/errors.js';
 import {
   OperationInput, LotInput, MAX_ATTACHMENT_BYTES, getMeta, getSummary, listOperations, getOperation,
-  precheck, createEntry, selfCorrect, addAttachment, getAttachment, importLot,
+  precheck, createEntry, selfCorrect, addAttachment, getAttachment, importLot, memberDebts,
 } from '../services/compta.js';
 
 const router = Router();
@@ -56,6 +57,12 @@ router.get('/operations',
   }),
   async (req, res) => {
     res.json({ operations: await listOperations(req.valid.query) });
+  });
+
+router.get('/remboursements',
+  validate({ query: z.object({ membre: z.string().trim().min(1).max(255).optional() }) }),
+  async (req, res) => {
+    res.json({ membres: await memberDebts(req.valid.query) });
   });
 
 router.post('/operations/check', validate({ body: OperationInput }), async (req, res) => {

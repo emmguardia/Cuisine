@@ -120,5 +120,13 @@ describe('adhérents et événements (base réelle)', { skip: !dbEnabled && 'TES
     await tx(c => compta.createEntry(c, op, A));
     const list = await compta.listOperations({ category: 'remboursement_membre' });
     assert.deepEqual(list.map(o => o.label), ['Remboursement Damien']);
+
+    // Note de frais : avances et remboursements regroupés par membre (casse ignorée).
+    await tx(c => compta.createEntry(c, compta.OperationInput.parse({ kind: 'depense', date: '2026-10-21', label: 'Avance 2',
+      treasury: 'membre', third_party: 'damien ', lines: [{ category: 'consommables', amount: 250 }] }), A));
+    const [d] = await compta.memberDebts({ membre: 'DAMIEN' });
+    assert.deepEqual([d.avances.length, d.avance, d.rembourse, d.du], [2, 350, 100, 250]);
+    assert.equal(d.avances[0].categories, 'Courses (alimentaire)');
+    assert.deepEqual(await compta.memberDebts({ membre: 'personne' }), []);
   });
 });
