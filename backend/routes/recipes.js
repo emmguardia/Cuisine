@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { routeLimiter } from '../config/security.js';
 import { jsonArray } from '../lib/json.js';
 import { randomUUID } from 'crypto';
 import { getPool } from '../config/database.js';
@@ -6,6 +7,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { deleteFromR2, isAllowedImageUrl } from '../config/r2.js';
 
 const router = Router();
+router.use(routeLimiter);
 
 function toSlug(title) {
   return title.toLowerCase()

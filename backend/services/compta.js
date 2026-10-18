@@ -557,7 +557,7 @@ const SIGNATURES = [
 
 /** Type réel d'après les octets d'en-tête (null si non autorisé). */
 export function sniffMime(buffer) {
-  if (!Buffer.isBuffer(buffer) || buffer.length < 12) return null;
+  if (!(buffer instanceof Buffer) || buffer.length < 12) return null;
   return SIGNATURES.find(s => s.test(buffer))?.mime ?? null;
 }
 
@@ -574,9 +574,12 @@ export function cleanFilename(name, mime) {
 }
 
 export async function addAttachment(conn, entryId, { filename, buffer, declaredMime }, actor, req) {
+  // Le corps vient de la requête : on n'accepte qu'un Buffer (jamais une chaîne,
+  // un tableau ou un objet dont « length » serait choisi par l'appelant).
+  if (!(buffer instanceof Buffer)) throw new HttpError(415, 'Fichier invalide');
   const entry = await loadEntryRow(conn, entryId);
   if (!entry) throw new HttpError(404, 'Opération introuvable');
-  if (!buffer?.length) throw new HttpError(400, 'Fichier vide');
+  if (buffer.length === 0) throw new HttpError(400, 'Fichier vide');
   if (buffer.length > MAX_ATTACHMENT_BYTES) throw new HttpError(413, 'Fichier trop lourd (8 Mo maximum)');
 
   const mime = sniffMime(buffer);
