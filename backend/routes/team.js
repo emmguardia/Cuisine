@@ -6,6 +6,7 @@
  * DELETE /api/team/:id       → supprimer (admin) + suppression de la photo R2
  */
 import { Router } from 'express';
+import { routeLimiter } from '../config/security.js';
 import { randomUUID } from 'crypto';
 import { getPool } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
@@ -13,6 +14,7 @@ import { deleteFromR2, isAllowedImageUrl } from '../config/r2.js';
 import { audit } from '../lib/audit.js';
 
 const router = Router();
+router.use(routeLimiter);
 
 /* ── GET /api/team — liste publique ─────────────────────────────────── */
 router.get('/', async (_req, res) => {

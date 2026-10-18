@@ -38,6 +38,21 @@ const adminIpLimiter = rateLimit({
 });
 
 /**
+ * Limite posée directement sur les routeurs publics ou membres (recettes,
+ * équipe, envoi d'images), en plus de la limite globale : les écritures sont
+ * plafonnées plus bas que les lectures.
+ */
+export const routeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: (req) => (['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? 300 : 60),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: clientIpKey,
+  skip: isHealthCheck,
+  message: { error: 'Trop de requêtes, réessayez dans quelques minutes' },
+});
+
+/**
  * Limite par membre du bureau, après requireAdmin (clé = id utilisateur).
  * Usage : router.use(requireAdmin, adminUserLimiter)
  */

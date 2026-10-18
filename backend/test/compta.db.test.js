@@ -145,6 +145,9 @@ describe('compta (base réelle)', { skip: !dbEnabled && 'TEST_DB_HOST non défin
     const { id } = await tx(c => compta.createEntry(c, compta.OperationInput.parse(depense({ date: '2026-10-16' })), A));
 
     await assert.rejects(tx(c => compta.addAttachment(c, id, { filename: 'x.jpg', buffer: FAKE, declaredMime: 'image/jpeg' }, A)), { status: 415 });
+    // Corps falsifié : chaîne, ou objet imitant un fichier avec une « length » choisie.
+    await assert.rejects(tx(c => compta.addAttachment(c, id, { filename: 'x.pdf', buffer: '%PDF-1.4 texte', declaredMime: 'application/pdf' }, A)), { status: 415 });
+    await assert.rejects(tx(c => compta.addAttachment(c, id, { filename: 'x.pdf', buffer: { length: 3, 0: 37 }, declaredMime: 'application/pdf' }, A)), { status: 415 });
     await assert.rejects(tx(c => compta.addAttachment(c, id, { filename: 'x.png', buffer: PDF, declaredMime: 'image/png' }, A)), { status: 415 });
 
     const a = await tx(c => compta.addAttachment(c, id, { filename: '../../etc/ticket "lidl".pdf', buffer: PDF, declaredMime: 'application/pdf' }, A));

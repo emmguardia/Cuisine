@@ -176,9 +176,10 @@ export async function updateEquipment(conn, id, input, actor, req) {
 }
 
 export async function setPhoto(conn, id, buffer, declaredMime, actor, req) {
+  if (!(buffer instanceof Buffer)) throw new HttpError(415, 'Photo invalide');
   const [rows] = await conn.execute('SELECT name FROM equipment WHERE id = ?', [id]);
   if (!rows.length) throw new HttpError(404, 'Matériel introuvable');
-  if (!buffer?.length) throw new HttpError(400, 'Photo vide');
+  if (buffer.length === 0) throw new HttpError(400, 'Photo vide');
   if (buffer.length > MAX_PHOTO_BYTES) throw new HttpError(413, 'Photo trop lourde (3 Mo maximum)');
   const mime = sniffMime(buffer);
   if (!mime || mime === 'application/pdf') throw new HttpError(415, 'Photo JPEG, PNG ou WebP uniquement');

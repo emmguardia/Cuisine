@@ -88,6 +88,7 @@ describe('matériel (base réelle)', { skip: !dbEnabled && 'TEST_DB_HOST non dé
     const id = await tx(c => eq.createEquipment(c, item({ name: 'Poêle' , category: 'cuisson' }), A));
     const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32, 1)]);
     await assert.rejects(tx(c => eq.setPhoto(c, id, Buffer.from('%PDF-1.4 fake pdf content'), 'image/png', A)), { status: 415 });
+    await assert.rejects(tx(c => eq.setPhoto(c, id, [0x89, 0x50], 'image/png', A)), { status: 415 });
     await tx(c => eq.setPhoto(c, id, png, 'image/png', A));
     assert.equal((await eq.getPhoto(id)).mime, 'image/png');
   });

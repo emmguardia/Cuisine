@@ -6,10 +6,12 @@
  * Config R2 dans config/r2.js.
  */
 import { Router } from 'express';
+import { routeLimiter } from '../config/security.js';
 import { requireAuth } from '../middleware/auth.js';
 import { presignUpload } from '../config/r2.js';
 
 const router = Router();
+router.use(routeLimiter);
 router.use(requireAuth);
 
 const ALLOWED_FOLDERS = ['recettes', 'membres'];
