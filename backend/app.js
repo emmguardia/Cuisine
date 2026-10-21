@@ -15,6 +15,7 @@ import eventsRouter   from './routes/events.js';
 import integrationsRouter from './routes/integrations.js';
 import equipmentRouter from './routes/equipment.js';
 import webhooksRouter from './routes/webhooks.js';
+import contactRouter  from './routes/contact.js';
 
 /**
  * Table de montage des routes métier. Exportée pour le test d'autorisation,
@@ -33,6 +34,7 @@ export const ROUTES = [
   { path: '/api/admin',          router: adminRouter },
   { path: '/api/upload',         router: uploadRouter },
   { path: '/api/team',           router: teamRouter },
+  { path: '/api/contact',        router: contactRouter },
 ];
 
 export const LOT_IMPORT_PATH = '/api/admin/compta/import';

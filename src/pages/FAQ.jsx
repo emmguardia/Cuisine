@@ -28,7 +28,7 @@ export default function FAQ() {
     },
     {
       question: 'Comment nous contacter ?',
-      answer: 'Via le formulaire sur la page Contact, ou directement par email à ddathueyt@guardiaschool.fr. On lit tous les messages et on répond dès que possible.'
+      answer: 'Via le formulaire sur la page Contact, ou directement par email à clubquisine@guardiaschool.fr. On lit tous les messages et on répond dès que possible.'
     },
     {
       question: 'Où se trouve Guardia Cybersecurity School ?',

@@ -46,7 +46,7 @@ export default function MentionsLegales() {
               <Row label="Forme juridique">Association loi 1901</Row>
               <Row label="Siège social">Guardia Cybersecurity School<br />50 Rue de Marseille<br />69007 Lyon, France</Row>
               <Row label="Responsable de publication">Damien Dathueyt, Président</Row>
-              <Row label="Contact éditeur">ddathueyt@guardiaschool.fr</Row>
+              <Row label="Contact éditeur">clubquisine@guardiaschool.fr</Row>
             </Section>
 
             <Section title="Développement & technique">
@@ -67,9 +67,9 @@ export default function MentionsLegales() {
 
             <Section title="Données personnelles & RGPD">
               <p>Ce site est un site vitrine. Il ne collecte aucune donnée personnelle à des fins de traçage ou de profilage.</p>
-              <p><strong className="text-warm-800">Formulaire de contact</strong> — Les informations renseignées (nom, email, message) sont transmises par email directement au responsable de publication. Elles ne sont ni stockées en base de données, ni transmises à des tiers.</p>
+              <p><strong className="text-warm-800">Formulaire de contact</strong> — Les informations renseignées (nom, email, message) sont transmises par email à l'adresse du club, qui vous envoie un accusé de réception. Elles ne sont pas stockées en base de données et ne sont transmises à aucun tiers.</p>
               <p><strong className="text-warm-800">Cookies</strong> — Ce site n'utilise aucun cookie de traçage ou publicitaire. Seuls des cookies techniques strictement nécessaires au bon fonctionnement du site peuvent être utilisés.</p>
-              <p><strong className="text-warm-800">Droit d'accès et de suppression</strong> — Conformément au RGPD (Règlement UE 2016/679), vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Pour exercer ce droit, contactez-nous à <a href="mailto:ddathueyt@guardiaschool.fr" className="text-orange-500 hover:text-orange-600 transition-colors">ddathueyt@guardiaschool.fr</a>.</p>
+              <p><strong className="text-warm-800">Droit d'accès et de suppression</strong> — Conformément au RGPD (Règlement UE 2016/679), vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Pour exercer ce droit, contactez-nous à <a href="mailto:clubquisine@guardiaschool.fr" className="text-orange-500 hover:text-orange-600 transition-colors">clubquisine@guardiaschool.fr</a>.</p>
             </Section>
 
             <Section title="Limitation de responsabilité">

@@ -1,18 +1,29 @@
 ﻿import { useState } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { api } from '../lib/api';
+
+const EMPTY = { name: '', email: '', subject: '', message: '', website: '' };
 
 export default function Contact() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
-  });
+  const [formData, setFormData] = useState(EMPTY);
+  const [status, setStatus] = useState('idle'); // idle | sending | sent | error
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Contact form:', formData);
+    setStatus('sending');
+    setError('');
+    try {
+      await api.contact.send(formData);
+      setFormData(EMPTY);
+      setStatus('sent');
+    } catch (err) {
+      setError(err.status === 400
+        ? 'Vérifiez les champs : nom sans lien ni chiffres, email valide, message d\'au moins 10 caractères.'
+        : err.message);
+      setStatus('error');
+    }
   };
 
   return (
@@ -79,11 +90,11 @@ export default function Contact() {
 
               {/* Infos */}
               <div className="flex flex-col gap-3 pt-2">
-                <a href="mailto:ddathueyt@guardiaschool.fr" className="flex items-center gap-3 font-nunito text-sm text-warm-600 hover:text-orange-500 transition-colors">
+                <a href="mailto:clubquisine@guardiaschool.fr" className="flex items-center gap-3 font-nunito text-sm text-warm-600 hover:text-orange-500 transition-colors">
                   <svg className="w-4 h-4 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  ddathueyt@guardiaschool.fr
+                  clubquisine@guardiaschool.fr
                 </a>
                 <span className="flex items-start gap-3 font-nunito text-sm text-warm-600">
                   <svg className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,6 +120,8 @@ export default function Contact() {
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                     className="font-nunito w-full px-4 py-3 rounded-xl border-2 border-orange-100 bg-cream-100 focus:outline-none focus:border-orange-300 focus:bg-white transition-all duration-200"
                     placeholder="Prénom Nom"
+                    autoComplete="name"
+                    maxLength={80}
                     required
                   />
                 </div>
@@ -121,6 +134,8 @@ export default function Contact() {
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                     className="font-nunito w-full px-4 py-3 rounded-xl border-2 border-orange-100 bg-cream-100 focus:outline-none focus:border-orange-300 focus:bg-white transition-all duration-200"
                     placeholder="vous@exemple.fr"
+                    autoComplete="email"
+                    maxLength={254}
                     required
                   />
                 </div>
@@ -133,6 +148,7 @@ export default function Contact() {
                     onChange={(e) => setFormData({...formData, subject: e.target.value})}
                     className="font-nunito w-full px-4 py-3 rounded-xl border-2 border-orange-100 bg-cream-100 focus:outline-none focus:border-orange-300 focus:bg-white transition-all duration-200"
                     placeholder="Proposition d'événement, question..."
+                    maxLength={150}
                     required
                   />
                 </div>
@@ -145,15 +161,43 @@ export default function Contact() {
                     rows={6}
                     className="font-nunito w-full px-4 py-3 rounded-xl border-2 border-orange-100 bg-cream-100 focus:outline-none focus:border-orange-300 focus:bg-white transition-all duration-200 resize-none"
                     placeholder="Décrivez votre projet ou votre question..."
+                    minLength={10}
+                    maxLength={5000}
                     required
                   />
                 </div>
 
+                {/* Champ piège : invisible pour les visiteurs, rempli par les robots. */}
+                <div className="absolute -left-[9999px] w-px h-px overflow-hidden" aria-hidden="true">
+                  <label>
+                    Site web
+                    <input
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={formData.website}
+                      onChange={(e) => setFormData({...formData, website: e.target.value})}
+                    />
+                  </label>
+                </div>
+
+                {status === 'sent' && (
+                  <p role="status" className="font-nunito text-sm text-green-800 bg-green-50 rounded-xl px-4 py-3">
+                    Message envoyé. Un accusé de réception vient de partir à votre adresse, on vous répond vite.
+                  </p>
+                )}
+                {status === 'error' && (
+                  <p role="alert" className="font-nunito text-sm text-red-700 bg-red-50 rounded-xl px-4 py-3">
+                    {error}
+                  </p>
+                )}
+
                 <button
                   type="submit"
-                  className="btn-primary w-full py-3.5 text-[15px]"
+                  disabled={status === 'sending'}
+                  className="btn-primary w-full py-3.5 text-[15px] disabled:opacity-60"
                 >
-                  Envoyer le message
+                  {status === 'sending' ? 'Envoi…' : 'Envoyer le message'}
                 </button>
               </form>
             </div>

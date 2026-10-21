@@ -26,6 +26,7 @@ const PUBLIC = new Set([
   'GET /api/recipes',
   'GET /api/recipes/:id',
   'GET /api/team',
+  'POST /api/contact',
 ]);
 
 const ADMIN_ONLY = (method, path) =>

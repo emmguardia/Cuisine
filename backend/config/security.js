@@ -53,6 +53,19 @@ export const routeLimiter = rateLimit({
 });
 
 /**
+ * Formulaire de contact : chaque requête envoie deux emails, dont un à une
+ * adresse saisie par le visiteur. Plafond bas pour qu'il ne serve pas de relais.
+ */
+export const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: clientIpKey,
+  message: { error: 'Trop de messages envoyés, réessayez dans une heure' },
+});
+
+/**
  * Limite par membre du bureau, après requireAdmin (clé = id utilisateur).
  * Usage : router.use(requireAdmin, adminUserLimiter)
  */
