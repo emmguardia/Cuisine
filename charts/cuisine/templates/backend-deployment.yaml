@@ -138,6 +138,11 @@ spec:
               valueFrom: { secretKeyRef: { name: quisine-secrets, key: sumup-merchant-code, optional: true } }
             - name: SUMUP_API_KEY
               valueFrom: { secretKeyRef: { name: quisine-secrets, key: sumup-api-key, optional: true } }
+            # Formulaire de contact : envoi par l'Email-Service (projet club-quisine).
+            - name: EMAIL_SERVICE_URL
+              value: "http://email-service.email-service.svc.cluster.local:8080"
+            - name: EMAIL_SERVICE_JWT_PRIVATE_KEY
+              valueFrom: { secretKeyRef: { name: quisine-secrets, key: email-service-jwt-private-key, optional: true } }
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           startupProbe:

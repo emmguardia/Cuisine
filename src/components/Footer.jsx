@@ -79,8 +79,8 @@ export default function Footer() {
             <p className="font-nunito text-xs font-bold tracking-[0.18em] uppercase text-orange-400 mb-5">Contact</p>
             <ul className="flex flex-col gap-3">
               <li>
-                <a href="mailto:ddathueyt@guardiaschool.fr" className="font-nunito text-sm text-white/60 hover:text-orange-400 transition-colors duration-200">
-                  ddathueyt@guardiaschool.fr
+                <a href="mailto:clubquisine@guardiaschool.fr" className="font-nunito text-sm text-white/60 hover:text-orange-400 transition-colors duration-200">
+                  clubquisine@guardiaschool.fr
                 </a>
               </li>
               <li className="font-nunito text-sm text-white/60 leading-relaxed">

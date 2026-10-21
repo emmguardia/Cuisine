@@ -26,6 +26,10 @@ async function req(path, options = {}) {
 }
 
 export const api = {
+  contact: {
+    send: (data) => req('/contact', { method: 'POST', body: data }),
+  },
+
   recipes: {
     list:   ()        => req('/recipes'),
     mine:   ()        => req('/recipes/mine'),
